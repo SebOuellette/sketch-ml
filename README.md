@@ -9,7 +9,7 @@ To save a training image and backpropagate the model once, press any number or l
 The artificial network is written from scratch utilizing an OpenGL compute shader to perform the forward pass and backpropagation. It also uses shader storage buffer objects for storing and transferring data to the GPU. 
 
 ## What can it do?
-Sketch-ML was designed with only the ability to detect handwritten digits in mind. However the ouput layer contains 36 outputs, enough for every letter of the english alphebet and arabic numeral digit. 
+Sketch-ML was designed with only the ability to detect handwritten digits in mind. However the ouput layer contains 36 outputs, enough for every letter of the english alphabet and arabic numeral digit. 
 <br>
 The output layer found below the large input box, starts at index 0 on the right and index 35 on the left (I'm sorry). In the below screenshots, we can see a successful example where digits were recognized successfully. These digits are all recognized on the same model with the same training set.
 <br>
