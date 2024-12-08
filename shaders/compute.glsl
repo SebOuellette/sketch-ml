@@ -93,13 +93,13 @@ void doBackProp(uint index) {
         float thisValCost = valCost(neurons[i].value, neurons[i].expected);
         valueCost += thisValCost;
 
-        weights[weightIndex] -= learningRate * 10.0 * thisValCost / thisCount;
+        weights[weightIndex] -= learningRate * 1.0 * thisValCost / thisCount;
     }
 
-    weightCost /= lastCount;
-    biasCost /= lastCount;
+    //weightCost /= lastCount;
+    //biasCost /= lastCount;
 
-    neurons[index].bias -= learningRate * float(valueCost) / thisCount;
+    //neurons[index].bias -= learningRate * float(valueCost) / thisCount;
     //weights[index] -= float(valueCost) / thisCount;
     otherNeurons[index].expected = otherNeurons[index].value - float(valueCost) / thisCount;
 

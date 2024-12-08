@@ -43,16 +43,17 @@ void main() {
     // User input
     float val;
     float minV = 0.0;
-    if (lalt) {
-        val = neurons[index].expected;
-        if (!lctrl) {
-            minV = -1.0;
-        }
-    } else {
-        val = neurons[index].value;
-    }
 
     if (mouseRange) {
+        if (lalt) {
+            val = neurons[index].expected;
+            if (!lctrl) {
+                minV = -1.0;
+            }
+        } else {
+            val = neurons[index].value;
+        }
+
         if (leftClick) {
             val = lalt ? 1.0 : min(val + 0.2, 1.0);
         } else if (rightClick) {
@@ -61,16 +62,16 @@ void main() {
                 val = 0.0;
             }
         }
-    }
 
-    //val = min(max(val, minV), 1.0);
+        //val = min(max(val, minV), 1.0);
 
-    if (lalt) {
-        neurons[index].expected = val;
-    } else {
-        neurons[index].value = val;
+        if (lalt) {
+            neurons[index].expected = val;
+        } else {
+            neurons[index].value = val;
+        }
     }
 
     // Draw
-    FragColor = vec4(vec3(neurons[index].value) + vec3(-neurons[index].expected, 0.0, neurons[index].expected) * 0.8, 1.0);
+    FragColor = vec4(vec3(neurons[index].value) + vec3(-neurons[index].expected, 0.0, neurons[index].expected) * 0.3, 1.0);
 }

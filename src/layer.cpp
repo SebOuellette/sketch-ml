@@ -82,7 +82,7 @@ Layer& Layer::backPropagate(Layer& lastLayer, oglopp::Compute& compute) {
 	compute.setInt("lastCount", lastLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", true);
-	compute.setFloat("learningRate", 0.1);
+	compute.setFloat("learningRate", 0.01);
 	compute.dispatch(lastLayer.getNeurons().getSize() / sizeof(Neuron), 1);
 
 	oglopp::SSBO::unbind();
