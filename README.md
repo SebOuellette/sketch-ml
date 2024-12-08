@@ -11,7 +11,7 @@ The artificial network is written from scratch utilizing an OpenGL compute shade
 ## What can it do?
 Sketch-ML was designed with only the ability to detect handwritten digits in mind. However the ouput layer contains 36 outputs, enough for every letter of the english alphabet and arabic numeral digit. 
 <br>
-The output layer found below the large input box, starts at index 0 on the right and index 35 on the left (I'm sorry). In the below screenshots, we can see a successful example where digits were recognized successfully. These digits are all recognized on the same model with the same training set.
+The output layer found below the large input box, starts at index 0 on the right and index 35 on the left (I'm sorry). In the below screenshots, we can see a successful example where digits were recognized successfully. These digits are all recognized on the same model with the same training set I created myself, which you can [download from my website](https://cdn2.honeybeeks.net/fa977edcb62e.tgz). 
 <br>
 This example was performed using a single hidden layer of size 100x100 (10000) neurons which is displayed on the right in each screenshot. The cost at each neuron is shown in blue in the same graphic. 
 ![image](https://github.com/user-attachments/assets/4034495d-c95c-4e38-a4ef-fbb2935f95bc)
