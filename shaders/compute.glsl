@@ -35,8 +35,8 @@ float activation(float x) {
 
 // Calculate the derivitive of the sigmoid function
 float activationD(float x) {
-    //return activation(x) * (1.0 - activation(x));
-    return x * (1.0 - x);
+    return activation(x) * (1.0 - activation(x));
+    //return x * (1.0 - x);
 }
 
 // calculate the cost of a value and its expected
@@ -89,19 +89,23 @@ void doBackProp(uint index) {
         weightIndex = i * lastCount + index; // Each larger block in weights is assocated with 'this' index
 
         //weightCost += calcWeightCost(index, i);
+        //weightCost += otherNeurons[index] * weights[weightIndex];
         //biasCost += calcBiasCost(i);
         float thisValCost = valCost(neurons[i].value, neurons[i].expected);
         valueCost += thisValCost;
 
-        weights[weightIndex] -= learningRate * 1.0 * thisValCost / thisCount;
+        //weights[weightIndex] -= learningRate * 1.0 * thisValCost; // / thisCount;
+        //weights[weightIndex] -= learningRate * otherNeurons[index].value * thisValCost / thisCount;
+        weights[weightIndex] -= learningRate * otherNeurons[index].value * thisValCost; // THIS WORKED WITH MOST NUMBERS ???
     }
 
-    //weightCost /= lastCount;
-    //biasCost /= lastCount;
+    //weightCost /= thisCount;
+    //biasCost /= thisCount;
+    valueCost /= thisCount;
 
-    //neurons[index].bias -= learningRate * float(valueCost) / thisCount;
+    neurons[index].bias -= learningRate * float(valueCost);
     //weights[index] -= float(valueCost) / thisCount;
-    otherNeurons[index].expected = otherNeurons[index].value - float(valueCost) / thisCount;
+    otherNeurons[index].expected = otherNeurons[index].value - float(valueCost);
 
     // What?
 }

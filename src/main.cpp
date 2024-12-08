@@ -138,7 +138,7 @@ int doTrainingSamples(Compute& compute, Network& network, std::string const& par
 
 		// Set all the values to 0, unless they match the expected index
 		for (size_t i=0;i<outputLayer->getNeurons().getSize() / sizeof(Neuron);i++) {
-			neuronMap[i].expected = (i == expectedIndex) ? 1.0 : 0.0;
+			neuronMap[i].expected = (i == expectedIndex) ? 1.0 :0.0;
 		}
 
 		// Unmap the neurons
@@ -239,6 +239,10 @@ int main() {
 
 		if (keyDown == 0) {
 			justPressed = false;
+		}
+
+		if (window.keyPressed(GLFW_KEY_ENTER)) {
+			doTrainingSamples(compute,network, MY_PATH);
 		}
 
 		//if (window.keyPressed(GLFW_KEY_RIGHT_ALT)) {
