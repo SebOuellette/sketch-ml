@@ -19,6 +19,7 @@ This example was performed using a single hidden layer of size 100x100 (10000) n
 ![image](https://github.com/user-attachments/assets/0d3b280f-7045-47a5-9c50-42c7419d7454)
 ![image](https://github.com/user-attachments/assets/8c6a211e-38a7-4cb1-a927-e4943cadf4b7)
 ![image](https://github.com/user-attachments/assets/770d03f3-8398-4424-be14-1cac7b9acbcd)
+![image](https://github.com/user-attachments/assets/530321a5-521a-40c5-8951-0eaa87c1dfed)
 ![image](https://github.com/user-attachments/assets/a96585fe-d831-4cf3-a129-48e594ab01a9)
 ![image](https://github.com/user-attachments/assets/a95e7adb-9277-45e4-b0a8-64902313a0f8)
 ![image](https://github.com/user-attachments/assets/a5a76c63-5bc4-47dc-9040-1d0649c34116)
