@@ -192,7 +192,7 @@ int main() {
 	screen.setPosition(glm::vec3(0.0, 0.0, 1.0));
 
 	// Create a network
-	Network network(32*32, {100*100}, 36);
+	Network network(32*32, {100*100, 50*50}, 36);
 
 	int width, height;
 	int8_t keyDown = 0;
