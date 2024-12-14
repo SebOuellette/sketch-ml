@@ -30,7 +30,7 @@ public:
 	Layer& feedForward(Layer& lastLayer, oglopp::Compute& compute);
 
 
-	Layer& backPropagate(Layer& lastLayer, oglopp::Compute& compute);
+	Layer& backPropagate(Layer& lastLayer, oglopp::Compute& compute, bool isLastLayer);
 
 	/* @brief Get a reference to the neuron SSBO
 	 * @return A reference to the neuron SSBo

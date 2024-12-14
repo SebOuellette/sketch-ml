@@ -73,5 +73,8 @@ void main() {
     }
 
     // Draw
-    FragColor = vec4(vec3(neurons[index].value) + vec3(-neurons[index].expected, 0.0, neurons[index].expected) * 0.3, 1.0);
+    float cost = neurons[index].expected - neurons[index].value;
+    //FragColor = vec4(vec3(neurons[index].bias, 0, neurons[index].expected), 1.0);
+    //FragColor = vec4(vec3(abs(cost), 0, 0), 1.0);
+    FragColor = vec4(vec3(neurons[index].value) + vec3(-neurons[index].expected, neurons[index].bias * 0.2, neurons[index].expected) * 0.3, 1.0);
 }

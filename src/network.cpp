@@ -120,13 +120,15 @@ Network& Network::backProp(oglopp::Compute& compute) {
 	Layer* thisLayer = nullptr;
 
 	// Feed forward each layer one at a time
+	bool isLastLayer = true;
 	for (size_t i=this->size()-1;i>0;i--) {
 		// Get the current layer
 		lastLayer = &this->layers[i-1];
 		thisLayer = &this->layers[i];
 
 		// Feed forward the layer given the last layer
-		thisLayer->backPropagate(*lastLayer, compute);
+		thisLayer->backPropagate(*lastLayer, compute, isLastLayer);
+		isLastLayer = false;
 	}
 
 	return *this;

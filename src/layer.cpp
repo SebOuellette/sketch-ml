@@ -19,7 +19,7 @@ Layer& Layer::setup(uint32_t const neuronCount, uint32_t const weightCount) {
 	for (uint32_t i=0;i<neuronCount;i++) {
 		pNeurons[i].bias 	= static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
 		//neurons[i].weight 	= static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
-		pNeurons[i].value 	= static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
+		pNeurons[i].value 	= 0.0; //static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
 		pNeurons[i].expected = 0.0; //= (static_cast<float>(static_cast<double>(rand()) / RAND_MAX) - 0.5) * 2.0;
 	}
 
@@ -72,17 +72,18 @@ Layer& Layer::feedForward(Layer& lastLayer, oglopp::Compute& compute) {
 	return *this;
 }
 
-Layer& Layer::backPropagate(Layer& lastLayer, oglopp::Compute& compute) {
+Layer& Layer::backPropagate(Layer& lastLayer, oglopp::Compute& compute, bool isLastLayer) {
 	this->getNeurons().bind(0);
 	lastLayer.getNeurons().bind(1);
 	this->getWeights().bind(2);
 
 	//std::cout << "last count is " << lastLayer.getNeurons().getSize() / sizeof(Neuron) << " while this is " << this->getNeurons().getSize() / sizeof(Neuron) << std::endl;
 	compute.use();
+	compute.setBool("isLastLayer", isLastLayer);
 	compute.setInt("lastCount", lastLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", true);
-	compute.setFloat("learningRate", 0.01);
+	compute.setFloat("learningRate", 0.1);
 	compute.dispatch(lastLayer.getNeurons().getSize() / sizeof(Neuron), 1);
 
 	oglopp::SSBO::unbind();

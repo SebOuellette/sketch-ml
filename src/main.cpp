@@ -1,4 +1,6 @@
+#include <chrono>
 #include <cstddef>
+#include <glm/common.hpp>
 #include <oglopp.h>
 #include <cstdint>
 #include <cstdlib>
@@ -22,6 +24,8 @@ using namespace oglopp;
 #define RESOLUTION	(32) // RESOLUTION x RESOLUTION pixels
 #define PIXELS		(RESOLUTION * RESOLUTION)
 #define SAMPLES_DIR	"samples/"
+
+#define TRAINSIZE 5
 
 class InputBuffer {
 public:
@@ -51,7 +55,7 @@ int saveTrainingElement(SSBO& buffer, uint8_t key, std::string const& parentDir)
 	std::string dir = parentDir + SAMPLES_DIR;
 	std::filesystem::create_directory(dir);
 
-	std::string filename = dir + static_cast<char>(key) + "_" + std::to_string(time(NULL)) + ".raw";
+	std::string filename = dir + static_cast<char>(key) + "_" + std::to_string(time(NULL)) + "_" + std::to_string(rand()) + ".raw";
 	std::cout << "Saving training element for " << key << " to " << filename << std::endl;
 
 	// Open a file for writing
@@ -78,13 +82,13 @@ int saveTrainingElement(SSBO& buffer, uint8_t key, std::string const& parentDir)
 	return 0;
 }
 
-int doTrainingSamples(Compute& compute, Network& network, std::string const& parentDir) {
-	// Generate a filename with time
+void loadTrainingFiles(std::vector<std::string>& filenames, std::string const& parentDir) {
 	std::string dir = parentDir + SAMPLES_DIR;
 	std::filesystem::create_directory(dir);
 
+	filenames.clear();
+
 	// Count files in dir
-	std::vector<std::string> filenames;
 	for (auto const& entry : std::filesystem::directory_iterator(dir)) {
 		if (entry.is_regular_file()) {
 			filenames.push_back(entry.path().filename().string());
@@ -101,7 +105,75 @@ int doTrainingSamples(Compute& compute, Network& network, std::string const& par
 		filenames[i] = filenames[swapIndex];
 		filenames[swapIndex] = temp;
 	}
+}
 
+void doSomeSamples(Compute& compute, Network& network, std::string const& parentDir, std::vector<std::string>& filenames, size_t& offset, size_t countToDo) {
+	std::string dir = parentDir + SAMPLES_DIR;
+	std::filesystem::create_directory(dir);
+
+	Layer* inputLayer = &network.getLayers().front();
+	Layer* outputLayer = &network.getLayers().back();
+	Neuron* neuronMap = nullptr;
+
+	countToDo = glm::min(countToDo, filenames.size());
+
+	size_t expectedIndex = 0;
+	for (size_t i=0;i<countToDo;i++) {
+		size_t fileIndex = (offset + i) % filenames.size();
+
+		// Calculate the expected idnex from the filename
+		expectedIndex = charToIndex(filenames[fileIndex][0]);
+
+		// OPen file
+		std::ifstream file(dir + filenames[fileIndex], std::ios::in | std::ios::binary);
+		std::cout << "Opening file [" << expectedIndex << "] " << dir + filenames[fileIndex] << std::endl;
+		if (file.fail()) {
+			std::cerr << "File failed to open" << std::endl;
+			return;
+		}
+
+		// Map the input buffer
+		neuronMap = static_cast<Neuron*>(inputLayer->getNeurons().map(oglopp::SSBO::BOTH));
+
+		// Read from the file into the neuron indices
+		size_t neuronIndex = 0;
+		while (!file.fail() && !file.eof() && !file.bad()) {
+			file.read(static_cast<char*>(static_cast<void*>(&neuronMap[neuronIndex].value)), sizeof(neuronMap[neuronIndex].value));
+			neuronIndex++;
+		}
+
+		// Unmap the neurons
+		inputLayer->getNeurons().unmap();
+
+		// Set the expected values in the final layer
+		neuronMap = static_cast<Neuron*>(outputLayer->getNeurons().map(oglopp::SSBO::BOTH));
+
+		// Set all the values to 0, unless they match the expected index
+		for (size_t l=0;l<outputLayer->getNeurons().getSize() / sizeof(Neuron);l++) {
+			neuronMap[l].expected = (l == expectedIndex) ? 1.0 :0.0;
+		}
+
+		// Unmap the neurons
+		outputLayer->getNeurons().unmap();
+
+		// Close the file
+		file.close();
+
+		// Do forward propagation
+		network.feedForward(compute);
+		// Now back propagate to train the network
+		network.backProp(compute);
+	}
+
+	offset = (offset + countToDo) % filenames.size();
+}
+
+int doTrainingSamples(Compute& compute, Network& network, std::string const& parentDir) {
+	// Generate a filename with time
+	std::string dir = parentDir + SAMPLES_DIR;
+
+	std::vector<std::string> filenames;
+	loadTrainingFiles(filenames, parentDir);
 
 	// Open each file, load into the input ssbo, then perform backpropagation
 	Layer* inputLayer = &network.getLayers().front();
@@ -156,6 +228,43 @@ int doTrainingSamples(Compute& compute, Network& network, std::string const& par
 	return 0;
 }
 
+Network* globalNet = nullptr;
+void keyFunc(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (globalNet == nullptr)
+		return;
+
+	//std::cout << "key was " << key << " with action " << action << std::endl;
+
+	// Pressing the 'INSERT' key down
+	if (key != 260 || action != 1)
+		return;
+
+	// Map the output layer neurons
+	Layer* layer = &globalNet->getLayers().back();
+	Neuron* neurons = static_cast<Neuron*>(layer->getNeurons().map());
+
+	// find the match
+	size_t maxIndex = 0;
+	for(size_t i=0;i<layer->getNeurons().getSize()/sizeof(Neuron);i++) {
+		if (neurons[i].value > neurons[maxIndex].value) {
+			maxIndex = i;
+		}
+		//std::cout << "[" << i << ":" << neurons[i].value << "]";
+	}
+
+	layer->getNeurons().unmap();
+
+	// Print the maximum and percent
+	char keyChar = 0;
+	if (maxIndex < 10) {
+		keyChar = maxIndex + '0';
+	} else {
+		keyChar = maxIndex + 'A' - 10;
+	}
+
+	std::cout << "I am " << ::floor(neurons[maxIndex].value * 10000) / 100 << "% sure this is a '" << keyChar << "'" << std::endl;
+}
+
 int main() {
 	srand(time(NULL));
 
@@ -171,6 +280,7 @@ int main() {
 	window.create(800, 800, "Handwritten Digit Recognition", options);
 	InputBuffer::windowPtr = &window;
 	glfwSetScrollCallback(window.getWindow(), InputBuffer::scrollCallback);
+	glfwSetKeyCallback(window.getWindow(), keyFunc);
 
 	std::string MY_PATH = std::filesystem::canonical("/proc/self/exe");
 	std::size_t pos = MY_PATH.find_last_of('/');
@@ -192,14 +302,21 @@ int main() {
 	screen.setPosition(glm::vec3(0.0, 0.0, 1.0));
 
 	// Create a network
-	Network network(32*32, {100*100, 50*50}, 36);
+	Network network(32*32, {100*100, 50*50, 20*20}, 36);
+	globalNet = &network;
 
 	int width, height;
 	int8_t keyDown = 0;
 	bool justPressed = false;
+	bool enterPressed = false;
+	bool trainingToggle = false;
+
+	size_t trainingOffset;
 
 	// Load and train the network before we begin
-	doTrainingSamples(compute, network, MY_PATH);
+	std::vector<std::string> filenames;
+	loadTrainingFiles(filenames, MY_PATH);
+	//doTrainingSamples(compute, network, MY_PATH);
 
 	while (!window.shouldClose()) {
 		keyDown = 0;
@@ -241,8 +358,23 @@ int main() {
 			justPressed = false;
 		}
 
+
 		if (window.keyPressed(GLFW_KEY_ENTER)) {
-			doTrainingSamples(compute,network, MY_PATH);
+			if (enterPressed == false) {
+				// Enter was just pressed
+				trainingOffset = 0;
+				loadTrainingFiles(filenames, MY_PATH);
+				trainingToggle = !trainingToggle;
+			}
+			enterPressed = true;
+
+			//doTrainingSamples(compute,network, MY_PATH);
+		} else {
+			enterPressed = false;
+		}
+
+		if (trainingToggle) {
+			doSomeSamples(compute, network, MY_PATH, filenames, trainingOffset, TRAINSIZE);
 		}
 
 		//if (window.keyPressed(GLFW_KEY_RIGHT_ALT)) {
