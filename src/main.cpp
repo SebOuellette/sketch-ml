@@ -113,7 +113,10 @@ void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint3
 			// Read each byte from file
 			while (!file.eof() && !file.fail()) {
 				file.read(static_cast<char*>(static_cast<void*>(&thisItem)), sizeof(thisItem));
-				fileData.push_back(thisItem);
+
+				if (!file.eof() && !file.fail()) {
+					fileData.push_back(thisItem);
+				}
 			}
 
 			// Close file

@@ -37,7 +37,7 @@ float activation(float x) {
 // The input to this is NOT 'x'. It is the result of sigmoid(x).
 float activationD(float sigmoid) {
     // Force the network to always do a bit of learning by adding a bit of an offset to the activation derivitive (0.005)
-    return (sigmoid * (1.f - sigmoid)) + 0.005; //0.005;
+    return (sigmoid * (1.f - sigmoid)) + 0.005; //0.005; //0.005;
 }
 
 // calculate the cost of a value and its expected

@@ -35,15 +35,13 @@ Network& Network::setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_
 	// Generate a filename
 	std::ostringstream filename;
 	filename << "skml_" << inputSize << "_";
-	for (size_t i=0;i<hiddenSizes.size() + 1;i++) {
+	for (size_t i=0;i<hiddenSizes.size();i++) {
 		filename << hiddenSizes[i] << "_";
 	}
 	filename << outputSize << "_" << std::to_string(time(NULL)) << "-" << std::to_string(rand()) << MODEL_EXTENSION;
 	this->networkFilename = filename.str();
 
-
 	this->layers.resize(2 + hiddenSizes.size());
-	oglopp::Rectangle* newRect = nullptr;
 
 	// Setup input
 	size_t lastSize = inputSize;
@@ -239,14 +237,17 @@ Network& Network::save(std::string const& directory) {
 
 	// Write hidden layer count
 	uint32_t hiddenLayers = this->layers.size() - 2; // includes hidden and output actually but...
+	std::cout << "Hidden layers " << hiddenLayers << std::endl;
 	file.write(static_cast<char*>(static_cast<void*>(&hiddenLayers)), sizeof(hiddenLayers));
 
 	// Write input neuron count
 	uint32_t inputNeuronCount = this->layers[0].getNeurons().getSize() / sizeof(Neuron); // includes hidden and output actually but...
+	std::cout << "Input neurons " << inputNeuronCount << std::endl;
 	file.write(static_cast<char*>(static_cast<void*>(&inputNeuronCount)), sizeof(inputNeuronCount));
 
 	// Write all layers except input
 	for (size_t i=1;i<this->layers.size();i++) {
+		std::cout << "Saving layer " << i << std::endl;
 		this->layers[i].writeLayer(file);
 	}
 
@@ -287,10 +288,12 @@ Network& Network::load(std::string const& networkFile) {
 	// Write hidden layer count (plus output layer)
 	uint32_t hiddenLayers;
 	file.read(static_cast<char*>(static_cast<void*>(&hiddenLayers)), sizeof(hiddenLayers));
+	std::cout << "Hidden layers " << hiddenLayers << std::endl;
 
 	// Write input neuron count
 	uint32_t inputNeuronCount;
 	file.read(static_cast<char*>(static_cast<void*>(&inputNeuronCount)), sizeof(inputNeuronCount));
+	std::cout << "Input neurons " << inputNeuronCount << std::endl;
 
 	// Setup input layer normally
 	this->layers.resize(hiddenLayers + 2);
