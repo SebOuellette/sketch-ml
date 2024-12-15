@@ -10,11 +10,13 @@
 #include <vector>
 #include <oglopp.h>
 #include <cstddef>
+#include "defines.h"
 
 class Network {
 public:
 	Network(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize);
 	Network(std::string const& filename);
+	Network() = default;
 	~Network();
 
 	/* @brief Setup the network based on a list of layers and sizes
@@ -24,6 +26,7 @@ public:
  	 */
 	Network& setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize);
 	Network& setup(std::string const& filename);
+	Network& setupUI();
 
 	/* @brief True if there was an error with the network, false otherwise
 	 * @return True if error, false otherwise
@@ -63,10 +66,23 @@ public:
 	*/
 	std::vector<Layer>& getLayers();
 
+	/* @brief Save the network layers to a model file. The model file is tagged using information about the model layers, as well as a timestamp
+	 * @param[in] directory	The directory to save the file into
+	 * @return A reference to this network object
+	*/
+	Network& save(std::string const& directory);
+
+	/* @brief Load network layers from a model file. The file can have any name.
+	 * @param[in] networkFile	The network file to load
+	 * @return					A reference to this network object
+	*/
+	Network& load(std::string const& networkFile);
+
 private:
 	std::vector<oglopp::Rectangle*> monitors;
 	std::vector<Layer> layers;
 	bool error;
+	std::string networkFilename;
 };
 
 #endif

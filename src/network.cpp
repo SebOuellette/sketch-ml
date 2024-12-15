@@ -3,6 +3,8 @@
 #include "oglopp/more_shapes.h"
 #include "oglopp/window.h"
 #include <cstdlib>
+#include <filesystem>
+#include <sstream>
 
 Network::Network(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize) {
 	this->setup(inputSize, hiddenSizes, outputSize);
@@ -18,12 +20,28 @@ Network::~Network() {
 	}
 }
 
+#define RECTS_NUM_X 2
+
+glm::vec3 calcRectPos(uint32_t index) {
+	return glm::vec3(-0.25 * (((index - 1) % RECTS_NUM_X) * 2.1) - 0.27, 0.25 - int((index - 1) / RECTS_NUM_X) * 0.25 * 2.1, 1.0);
+}
+
 /* @brief Setup the network based on a list of layers and sizes
  * @param[in] inputSize		The input layer size
  * @param[in] layerSizes	The number of neurons in each hidden layer
  * @param[in] outputSize	The ouput layer size
  */
 Network& Network::setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize) {
+	// Generate a filename
+	std::ostringstream filename;
+	filename << "skml_" << inputSize << "_";
+	for (size_t i=0;i<hiddenSizes.size() + 1;i++) {
+		filename << hiddenSizes[i] << "_";
+	}
+	filename << outputSize << "_" << std::to_string(time(NULL)) << "-" << std::to_string(rand()) << MODEL_EXTENSION;
+	this->networkFilename = filename.str();
+
+
 	this->layers.resize(2 + hiddenSizes.size());
 	oglopp::Rectangle* newRect = nullptr;
 
@@ -31,35 +49,49 @@ Network& Network::setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_
 	size_t lastSize = inputSize;
 	this->layers[0].setup(inputSize, 0);
 
-	newRect = new oglopp::Rectangle;
-	newRect->setScale(glm::vec3(1.0, 1.0, 1.0));
-	newRect->setPosition(glm::vec3(1.0, 0.0, 1.0));
-	this->monitors.push_back(newRect);
-
 	// Setup hidden
 	for (size_t i=1;i<=hiddenSizes.size();i++) {
 		this->layers[i].setup(hiddenSizes[i-1], lastSize);
 		lastSize = hiddenSizes[i-1];
-
-		newRect = new oglopp::Rectangle;
-		newRect->setScale(glm::vec3(0.5, 0.5, 1.0));
-		newRect->setPosition(glm::vec3(-0.25 * (((i - 1) % 3) * 2.1) + 0.20, 0.25 - int((i - 1) / 3) * 0.25 * 2.1, 1.0));
-		this->monitors.push_back(newRect);
 	}
 
 	// Setup output
 	this->layers[hiddenSizes.size() + 1].setup(outputSize, lastSize);
 
-	newRect = new oglopp::Rectangle;
-	newRect->setScale(glm::vec3(1.0, 0.1, 1.0));
-	newRect->setPosition(glm::vec3(1.0, -0.6, 1.0));
-	this->monitors.push_back(newRect);
-
-	return *this;
+	return this->setupUI();
 }
 
 Network& Network::setup(std::string const& filename) {
-	std::cerr << "Filename network loading is not implemented" << std::endl;
+	this->networkFilename = filename;
+
+	this->load(this->networkFilename);
+
+	return this->setupUI();
+}
+
+Network& Network::setupUI() {
+	oglopp::Rectangle* newRect = nullptr;
+
+	// Display input
+	newRect = new oglopp::Rectangle;
+	newRect->setScale(glm::vec3(1.0, 1.0, 1.0));
+	newRect->setPosition(glm::vec3(0.5, 0.0, 1.0));
+	this->monitors.push_back(newRect);
+
+	// Display hidden
+	for (size_t i=0;i<this->layers.size() - 2;i++) {
+		newRect = new oglopp::Rectangle;
+		newRect->setScale(glm::vec3(0.5, 0.5, 1.0));
+		newRect->setPosition(calcRectPos(i + 1));
+		this->monitors.push_back(newRect);
+	}
+
+	// Display output
+	newRect = new oglopp::Rectangle;
+	newRect->setScale(glm::vec3(0.5, 0.5, 1.0));
+	newRect->setPosition(calcRectPos(this->layers.size() - 1));
+	this->monitors.push_back(newRect);
+
 	return *this;
 }
 
@@ -147,11 +179,13 @@ Network& Network::draw(oglopp::Window& window, oglopp::Shader& shader) {
 		if (i < this->monitors.size()) {
 			res = ceil(sqrt(this->layers[i].getNeurons().getSize() / sizeof(Neuron)));
 			//std::cout << "size is " << this->layers[i].getNeurons().getSize() / sizeof(Neuron) << ", res is " << res << std::endl;
-			if (i == this->size() - 1) {
-				shader.setVec2("layerSize", glm::vec2(this->layers[this->layers.size()-1].getNeurons().getSize() / sizeof(Neuron), 1));
-			} else {
-				shader.setVec2("layerSize", glm::vec2(res, res));
-			}
+			//if (i == this->size() - 1) {
+			//	shader.setVec2("layerSize", glm::vec2(this->layers[this->layers.size()-1].getNeurons().getSize() / sizeof(Neuron), 1));
+			//} else {
+				//shader.setVec2("layerSize", glm::vec2(res, res));
+				//}
+
+			shader.setVec2("layerSize", glm::vec2(res, res));
 
 			shader.setVec3("screenPos", this->monitors[i]->getPosition());
 			shader.setVec3("screenSize", this->monitors[i]->getScale());
@@ -168,4 +202,106 @@ Network& Network::draw(oglopp::Window& window, oglopp::Shader& shader) {
 */
 std::vector<Layer>& Network::getLayers() {
 	return this->layers;
+}
+
+/* @brief Save the network layers to a model file. The model file is tagged using information about the model layers, as well as a timestamp
+ * @param[in] directory	The directory to save the file into
+ * @return A reference to this network object
+*/
+Network& Network::save(std::string const& directory) {
+	// [uint32_t : hidden layer count]
+	// [uint32_t : input neuron count]
+	// [uint32_t : hidden layer 1 neuron count]
+	// [uint64_t : input to hidden layer 1 weights count]
+	// [float[] : input to hidden layer 1 weights]
+	// [float[] : hidden layer 1 biases]
+	// [uint32_t : hidden layer N neuron count]
+	// [uint64_t : hidden layer N-1 to hidden layer N weights count]
+	// [float[] : hidden layer N-1 to hidden layer N weights]
+	// [float[] : hidden layer N biases]
+	// [uint32_t : output layer neuron count]
+	// [uint64_t : hidden layer N to output layer weights count]
+	// [float[] : hidden layer N to output layer weights]
+	// [float[] : output layer biases]
+	//
+
+	std::filesystem::create_directory(directory);
+
+	// Now get the full filepath
+	std::string fullPath = directory + this->networkFilename;
+	std::cout << "Saving model to " << fullPath << std::endl;
+
+	// Open the file
+	std::fstream file(fullPath, std::ios::out | std::ios::binary);
+	if (file.bad()) {
+		return *this;
+	}
+
+	// Write hidden layer count
+	uint32_t hiddenLayers = this->layers.size() - 2; // includes hidden and output actually but...
+	file.write(static_cast<char*>(static_cast<void*>(&hiddenLayers)), sizeof(hiddenLayers));
+
+	// Write input neuron count
+	uint32_t inputNeuronCount = this->layers[0].getNeurons().getSize() / sizeof(Neuron); // includes hidden and output actually but...
+	file.write(static_cast<char*>(static_cast<void*>(&inputNeuronCount)), sizeof(inputNeuronCount));
+
+	// Write all layers except input
+	for (size_t i=1;i<this->layers.size();i++) {
+		this->layers[i].writeLayer(file);
+	}
+
+	file.close();
+	return *this;
+}
+
+/* @brief Load network layers from a model file. The file can have any name.
+ * @param[in] networkFile	The network file to load
+ * @return					A reference to this network object
+*/
+Network& Network::load(std::string const& networkFile) {
+	// [uint32_t : hidden layer count]
+	// [uint32_t : input neuron count]
+	// [uint32_t : hidden layer 1 neuron count]
+	// [uint64_t : input to hidden layer 1 weights count]
+	// [float[] : input to hidden layer 1 weights]
+	// [float[] : hidden layer 1 biases]
+	// [uint32_t : hidden layer N neuron count]
+	// [uint64_t : hidden layer N-1 to hidden layer N weights count]
+	// [float[] : hidden layer N-1 to hidden layer N weights]
+	// [float[] : hidden layer N biases]
+	// [uint32_t : output layer neuron count]
+	// [uint64_t : hidden layer N to output layer weights count]
+	// [float[] : hidden layer N to output layer weights]
+	// [float[] : output layer biases]
+	//
+
+	// Now get the full filepath
+	std::cout << "Loading model from " << networkFile << std::endl;
+
+	// Open the file
+	std::fstream file(networkFile, std::ios::in | std::ios::binary);
+	if (file.bad()) {
+		return *this;
+	}
+
+	// Write hidden layer count (plus output layer)
+	uint32_t hiddenLayers;
+	file.read(static_cast<char*>(static_cast<void*>(&hiddenLayers)), sizeof(hiddenLayers));
+
+	// Write input neuron count
+	uint32_t inputNeuronCount;
+	file.read(static_cast<char*>(static_cast<void*>(&inputNeuronCount)), sizeof(inputNeuronCount));
+
+	// Setup input layer normally
+	this->layers.resize(hiddenLayers + 2);
+	this->layers[0].setup(inputNeuronCount, 0);
+
+	// Read all layers except input
+	for (size_t i=0;i<=hiddenLayers;i++) {
+		std::cout << "Reading " << i + 1 << std::endl;
+		this->layers[i + 1].readLayer(file);
+	}
+
+	file.close();
+	return *this;
 }

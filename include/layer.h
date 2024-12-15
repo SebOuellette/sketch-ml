@@ -5,6 +5,7 @@
 #include "oglopp/compute.h"
 #include <vector>
 #include <cstdlib>
+#include <fstream>
 
 class Layer {
 public:
@@ -41,6 +42,18 @@ public:
 	 * @return A reference to the neuron SSBo
 	*/
 	oglopp::SSBO& getWeights();
+
+	/* @brief Write the layer to
+	 * @param[in] stream	The stream to write the layer to
+	 * @return				A reference to this layer object
+	*/
+	Layer& writeLayer(std::fstream& stream);
+
+	/* @brief Write the layer to
+	 * @param[in] stream	The stream to write the layer to
+	 * @return				A reference to this layer object
+	*/
+	Layer& readLayer(std::fstream& stream);
 
 private:
 	oglopp::SSBO neurons;

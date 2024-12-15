@@ -113,7 +113,8 @@ void doSomeSamples(Compute& compute, Network& network, std::string const& parent
 
 	Layer* inputLayer = &network.getLayers().front();
 	Layer* outputLayer = &network.getLayers().back();
-	Neuron* neuronMap = nullptr;
+	Neuron* inputMap = nullptr;
+	Neuron* outputMap = nullptr;
 
 	countToDo = glm::min(countToDo, filenames.size());
 
@@ -133,25 +134,28 @@ void doSomeSamples(Compute& compute, Network& network, std::string const& parent
 		}
 
 		// Map the input buffer
-		neuronMap = static_cast<Neuron*>(inputLayer->getNeurons().map(oglopp::SSBO::BOTH));
+		inputMap = static_cast<Neuron*>(inputLayer->getNeurons().map(oglopp::SSBO::BOTH));
 
 		// Read from the file into the neuron indices
 		size_t neuronIndex = 0;
 		while (!file.fail() && !file.eof() && !file.bad()) {
-			file.read(static_cast<char*>(static_cast<void*>(&neuronMap[neuronIndex].value)), sizeof(neuronMap[neuronIndex].value));
+			file.read(static_cast<char*>(static_cast<void*>(&inputMap[neuronIndex].value)), sizeof(inputMap[neuronIndex].value));
 			neuronIndex++;
+		}
+
+
+
+		// Set the expected values in the final layer
+		outputMap = static_cast<Neuron*>(outputLayer->getNeurons().map(oglopp::SSBO::BOTH));
+
+		// Set all the values to 0, unless they match the expected index
+		for (size_t l=0;l<outputLayer->getNeurons().getSize() / sizeof(Neuron);l++) {
+			//neuronMap[l].expected = (l == expectedIndex) ? 1.0 :0.0;
+			outputMap[l].expected = inputMap[l].value;
 		}
 
 		// Unmap the neurons
 		inputLayer->getNeurons().unmap();
-
-		// Set the expected values in the final layer
-		neuronMap = static_cast<Neuron*>(outputLayer->getNeurons().map(oglopp::SSBO::BOTH));
-
-		// Set all the values to 0, unless they match the expected index
-		for (size_t l=0;l<outputLayer->getNeurons().getSize() / sizeof(Neuron);l++) {
-			neuronMap[l].expected = (l == expectedIndex) ? 1.0 :0.0;
-		}
 
 		// Unmap the neurons
 		outputLayer->getNeurons().unmap();
@@ -166,66 +170,6 @@ void doSomeSamples(Compute& compute, Network& network, std::string const& parent
 	}
 
 	offset = (offset + countToDo) % filenames.size();
-}
-
-int doTrainingSamples(Compute& compute, Network& network, std::string const& parentDir) {
-	// Generate a filename with time
-	std::string dir = parentDir + SAMPLES_DIR;
-
-	std::vector<std::string> filenames;
-	loadTrainingFiles(filenames, parentDir);
-
-	// Open each file, load into the input ssbo, then perform backpropagation
-	Layer* inputLayer = &network.getLayers().front();
-	Layer* outputLayer = &network.getLayers().back();
-	Neuron* neuronMap = nullptr;
-	size_t expectedIndex = 0;
-	for (size_t i=0;i<filenames.size();i++) {
-		// Calculate the expected idnex from the filename
-		expectedIndex = charToIndex(filenames[i][0]);
-
-		// OPen file
-		std::ifstream file(dir + filenames[i], std::ios::in | std::ios::binary);
-		std::cout << "Opening file [" << expectedIndex << "] " << dir + filenames[i] << std::endl;
-		if (file.fail()) {
-			std::cerr << "File failed to open" << std::endl;
-			return -1;
-		}
-
-		// Map the input buffer
-		neuronMap = static_cast<Neuron*>(inputLayer->getNeurons().map(oglopp::SSBO::BOTH));
-
-		// Read from the file into the neuron indices
-		size_t neuronIndex = 0;
-		while (!file.fail() && !file.eof() && !file.bad()) {
-			file.read(static_cast<char*>(static_cast<void*>(&neuronMap[neuronIndex].value)), sizeof(neuronMap[neuronIndex].value));
-			neuronIndex++;
-		}
-
-		// Unmap the neurons
-		inputLayer->getNeurons().unmap();
-
-		// Set the expected values in the final layer
-		neuronMap = static_cast<Neuron*>(outputLayer->getNeurons().map(oglopp::SSBO::BOTH));
-
-		// Set all the values to 0, unless they match the expected index
-		for (size_t i=0;i<outputLayer->getNeurons().getSize() / sizeof(Neuron);i++) {
-			neuronMap[i].expected = (i == expectedIndex) ? 1.0 :0.0;
-		}
-
-		// Unmap the neurons
-		outputLayer->getNeurons().unmap();
-
-		// Close the file
-		file.close();
-
-		// Do forward propagation
-		network.feedForward(compute);
-		// Now back propagate to train the network
-		network.backProp(compute);
-	}
-
-	return 0;
 }
 
 Network* globalNet = nullptr;
@@ -265,7 +209,7 @@ void keyFunc(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	std::cout << "I am " << ::floor(neurons[maxIndex].value * 10000) / 100 << "% sure this is a '" << keyChar << "'" << std::endl;
 }
 
-int main() {
+int main(int argc, char** argv) {
 	srand(time(NULL));
 
 	// Setup some window options to make it invisible
@@ -302,7 +246,14 @@ int main() {
 	screen.setPosition(glm::vec3(0.0, 0.0, 1.0));
 
 	// Create a network
-	Network network(32*32, {100*100, 50*50, 20*20}, 36);
+	//Network network(32*32, {100*100, 50*50, 20*20}, 32*32);
+	Network network; //(32*32, {50*50, 20*20, 10, 20*20, 50*50}, 32*32);
+	if (argc < 2) {
+		network.setup(32*32, {50*50, 20*20, 10, 20*20, 50*50}, 32*32);
+	} else {
+		network.setup(argv[1]);
+	}
+
 	globalNet = &network;
 
 	int width, height;
@@ -310,12 +261,13 @@ int main() {
 	bool justPressed = false;
 	bool enterPressed = false;
 	bool trainingToggle = false;
+	bool pgdownPressed = false; // Page Down = save network
 
 	size_t trainingOffset;
 
 	// Load and train the network before we begin
 	std::vector<std::string> filenames;
-	loadTrainingFiles(filenames, MY_PATH);
+	//loadTrainingFiles(filenames, MY_PATH);
 	//doTrainingSamples(compute, network, MY_PATH);
 
 	while (!window.shouldClose()) {
@@ -376,6 +328,18 @@ int main() {
 		if (trainingToggle) {
 			doSomeSamples(compute, network, MY_PATH, filenames, trainingOffset, TRAINSIZE);
 		}
+
+
+		// Saving the network
+		if (window.keyPressed(GLFW_KEY_PAGE_DOWN)) {
+			if (pgdownPressed == false) {
+				network.save(MY_PATH + MODEL_DIRECTORY);
+			}
+			pgdownPressed = true;
+		} else {
+			pgdownPressed = false;
+		}
+
 
 		//if (window.keyPressed(GLFW_KEY_RIGHT_ALT)) {
 		//	network.backProp(compute);

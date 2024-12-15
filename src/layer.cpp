@@ -1,8 +1,8 @@
 #include "layer.h"
+#include "neuron.h"
 #include "oglopp/compute.h"
 #include "oglopp/ssbo.h"
 #include <iostream>
-
 
 /* @brief Setup the SSBO with some neurons
  * @param[in] neuronCount	The number of neurons to randomly initialize and prepare in the SSBO
@@ -83,7 +83,7 @@ Layer& Layer::backPropagate(Layer& lastLayer, oglopp::Compute& compute, bool isL
 	compute.setInt("lastCount", lastLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", true);
-	compute.setFloat("learningRate", 0.1);
+	compute.setFloat("learningRate", 0.003);
 	compute.dispatch(lastLayer.getNeurons().getSize() / sizeof(Neuron), 1);
 
 	oglopp::SSBO::unbind();
@@ -103,4 +103,82 @@ oglopp::SSBO& Layer::getNeurons() {
 */
 oglopp::SSBO& Layer::getWeights() {
 	return this->weights;
+}
+
+/* @brief Write the layer to
+ * @param[in] stream	The stream to write the layer to
+ * @return				A reference to this layer object
+*/
+Layer& Layer::writeLayer(std::fstream& stream) {
+	// [uint32_t : Layer neuron count]
+	// [uint64_t : Last layer to this layer weights count]
+	// [float[] : Last layer to this layer weights]
+	// [float[] : Layer biases]
+
+	// Write the size of the neurons
+	uint32_t neuronSize = this->neurons.getSize() / sizeof(Neuron);
+	stream.write(static_cast<char*>(static_cast<void*>(&neuronSize)), sizeof(neuronSize));
+
+	// Write the size of the weights
+	uint64_t weightsSize = this->weights.getSize() / sizeof(float);
+	stream.write(static_cast<char*>(static_cast<void*>(&weightsSize)), sizeof(weightsSize));
+
+	// Write the weights
+	void* weightsMap = this->weights.map();
+	stream.write(static_cast<char*>(weightsMap), this->weights.getSize());
+	this->weights.unmap();
+
+	// Write the biases
+	Neuron* neuronsMap = static_cast<Neuron*>(this->neurons.map());
+	for (size_t i=0;i<neuronSize;i++) {
+		// Write each bias
+		stream.write(static_cast<char*>(static_cast<void*>(&neuronsMap[i].bias)), sizeof(float));
+	}
+	this->neurons.unmap();
+
+
+	return *this;
+}
+
+/* @brief Write the layer to
+ * @param[in] stream	The stream to write the layer to
+ * @return				A reference to this layer object
+*/
+Layer& Layer::readLayer(std::fstream& stream) {
+	// [uint32_t : Layer neuron count]
+	// [uint64_t : Last layer to this layer weights count]
+	// [float[] : Last layer to this layer weights]
+	// [float[] : Layer biases]
+
+	// Write the size of the neurons
+	uint32_t neuronSize = 0;
+	stream.read(static_cast<char*>(static_cast<void*>(&neuronSize)), sizeof(neuronSize));
+
+	// Write the size of the weights
+	uint64_t weightsSize = 0;
+	stream.read(static_cast<char*>(static_cast<void*>(&weightsSize)), sizeof(weightsSize));
+
+	// Read the weights
+	std::cout << "Allocating size " << weightsSize << std::endl;
+	float* weights = new float[weightsSize];
+	if (weights == nullptr) {
+		std::cerr << "Failed to allocate weights buffer during read of file" << std::endl;
+		return *this;
+	}
+	stream.read(static_cast<char*>(static_cast<void*>(weights)), weightsSize * sizeof(float));
+	this->weights.load(weights, weightsSize * sizeof(float));
+	delete[] weights;
+
+	// Write the biases
+	std::cout << "Allocating neurons " << neuronSize << std::endl;
+	Neuron* neurons = new Neuron[neuronSize];
+	for (size_t i=0;i<neuronSize;i++) {
+		// Write each bias
+		stream.read(static_cast<char*>(static_cast<void*>(&neurons[i].bias)), sizeof(float));
+		neurons[i].expected = 0.0; // Just initialize the data to something
+		neurons[i].value = 0.0;
+	}
+	this->neurons.load(neurons, neuronSize * sizeof(Neuron));
+	delete[] neurons;
+	return *this;
 }
