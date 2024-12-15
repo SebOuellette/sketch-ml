@@ -82,32 +82,61 @@ int saveTrainingElement(SSBO& buffer, uint8_t key, std::string const& parentDir)
 	return 0;
 }
 
-void loadTrainingFiles(std::vector<std::string>& filenames, std::string const& parentDir) {
+void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint32_t>& fileIndices, std::string const& parentDir) {
 	std::string dir = parentDir + SAMPLES_DIR;
 	std::filesystem::create_directory(dir);
 
-	filenames.clear();
+	files.clear();
 
 	// Count files in dir
+	uint32_t index = 0;
+	std::string filename;
+	std::vector<float> fileData;
+	float thisItem;
+
 	for (auto const& entry : std::filesystem::directory_iterator(dir)) {
 		if (entry.is_regular_file()) {
-			filenames.push_back(entry.path().filename().string());
-			std::cout << "Loading training sample " << filenames.back() << std::endl;
+			filename = entry.path().filename().string();
+			std::cout << "Loading training sample " << filename << std::endl;
+			fileData.clear();
+
+			// Load the file into a string
+
+			// Open file
+			std::ifstream file(dir + filename, std::ios::in | std::ios::binary);
+			std::cout << "Opening file [" << index << "] " << dir + filename << std::endl;
+			if (file.fail()) {
+				std::cerr << "File failed to open" << std::endl;
+				return;
+			}
+
+			// Read each byte from file
+			while (!file.eof() && !file.fail()) {
+				file.read(static_cast<char*>(static_cast<void*>(&thisItem)), sizeof(thisItem));
+				fileData.push_back(thisItem);
+			}
+
+			// Close file
+			file.close();
+
+			// Push the file contents to the vector
+			files.push_back(fileData);
+			fileIndices.push_back(index++);
 		}
 	}
 
-	// Shuffle the filenames
+	// Shuffle the file indices
 	std::cout << "Shuffling training data" << std::endl;
 	size_t swapIndex = 0;
-	for (size_t i=0;i<filenames.size();i++) {
-		swapIndex = rand() % filenames.size();
-		std::string temp = filenames[i];
-		filenames[i] = filenames[swapIndex];
-		filenames[swapIndex] = temp;
+	for (size_t i=0;i<fileIndices.size();i++) {
+		swapIndex = rand() % fileIndices.size();
+		uint32_t temp = fileIndices[i];
+		fileIndices[i] = fileIndices[swapIndex];
+		fileIndices[swapIndex] = temp;
 	}
 }
 
-void doSomeSamples(Compute& compute, Network& network, std::string const& parentDir, std::vector<std::string>& filenames, size_t& offset, size_t countToDo) {
+void doSomeSamples(Compute& compute, Network& network, std::string const& parentDir, std::vector<std::vector<float>>& files, std::vector<uint32_t>& fileIndices, size_t& offset, size_t countToDo) {
 	std::string dir = parentDir + SAMPLES_DIR;
 	std::filesystem::create_directory(dir);
 
@@ -116,34 +145,19 @@ void doSomeSamples(Compute& compute, Network& network, std::string const& parent
 	Neuron* inputMap = nullptr;
 	Neuron* outputMap = nullptr;
 
-	countToDo = glm::min(countToDo, filenames.size());
+	countToDo = glm::min(countToDo, files.size());
 
 	size_t expectedIndex = 0;
 	for (size_t i=0;i<countToDo;i++) {
-		size_t fileIndex = (offset + i) % filenames.size();
-
-		// Calculate the expected idnex from the filename
-		expectedIndex = charToIndex(filenames[fileIndex][0]);
-
-		// OPen file
-		std::ifstream file(dir + filenames[fileIndex], std::ios::in | std::ios::binary);
-		std::cout << "Opening file [" << expectedIndex << "] " << dir + filenames[fileIndex] << std::endl;
-		if (file.fail()) {
-			std::cerr << "File failed to open" << std::endl;
-			return;
-		}
+		size_t fileIndex = fileIndices[(offset + i) % fileIndices.size()];
 
 		// Map the input buffer
 		inputMap = static_cast<Neuron*>(inputLayer->getNeurons().map(oglopp::SSBO::BOTH));
 
 		// Read from the file into the neuron indices
-		size_t neuronIndex = 0;
-		while (!file.fail() && !file.eof() && !file.bad()) {
-			file.read(static_cast<char*>(static_cast<void*>(&inputMap[neuronIndex].value)), sizeof(inputMap[neuronIndex].value));
-			neuronIndex++;
+		for (size_t n=0;n<files[fileIndex].size();n++) {
+			inputMap[n].value = files[fileIndex][n];
 		}
-
-
 
 		// Set the expected values in the final layer
 		outputMap = static_cast<Neuron*>(outputLayer->getNeurons().map(oglopp::SSBO::BOTH));
@@ -160,8 +174,6 @@ void doSomeSamples(Compute& compute, Network& network, std::string const& parent
 		// Unmap the neurons
 		outputLayer->getNeurons().unmap();
 
-		// Close the file
-		file.close();
 
 		// Do forward propagation
 		network.feedForward(compute);
@@ -169,44 +181,7 @@ void doSomeSamples(Compute& compute, Network& network, std::string const& parent
 		network.backProp(compute);
 	}
 
-	offset = (offset + countToDo) % filenames.size();
-}
-
-Network* globalNet = nullptr;
-void keyFunc(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (globalNet == nullptr)
-		return;
-
-	//std::cout << "key was " << key << " with action " << action << std::endl;
-
-	// Pressing the 'INSERT' key down
-	if (key != 260 || action != 1)
-		return;
-
-	// Map the output layer neurons
-	Layer* layer = &globalNet->getLayers().back();
-	Neuron* neurons = static_cast<Neuron*>(layer->getNeurons().map());
-
-	// find the match
-	size_t maxIndex = 0;
-	for(size_t i=0;i<layer->getNeurons().getSize()/sizeof(Neuron);i++) {
-		if (neurons[i].value > neurons[maxIndex].value) {
-			maxIndex = i;
-		}
-		//std::cout << "[" << i << ":" << neurons[i].value << "]";
-	}
-
-	layer->getNeurons().unmap();
-
-	// Print the maximum and percent
-	char keyChar = 0;
-	if (maxIndex < 10) {
-		keyChar = maxIndex + '0';
-	} else {
-		keyChar = maxIndex + 'A' - 10;
-	}
-
-	std::cout << "I am " << ::floor(neurons[maxIndex].value * 10000) / 100 << "% sure this is a '" << keyChar << "'" << std::endl;
+	offset = (offset + countToDo) % files.size();
 }
 
 int main(int argc, char** argv) {
@@ -224,7 +199,6 @@ int main(int argc, char** argv) {
 	window.create(800, 800, "Handwritten Digit Recognition", options);
 	InputBuffer::windowPtr = &window;
 	glfwSetScrollCallback(window.getWindow(), InputBuffer::scrollCallback);
-	glfwSetKeyCallback(window.getWindow(), keyFunc);
 
 	std::string MY_PATH = std::filesystem::canonical("/proc/self/exe");
 	std::size_t pos = MY_PATH.find_last_of('/');
@@ -254,8 +228,6 @@ int main(int argc, char** argv) {
 		network.setup(argv[1]);
 	}
 
-	globalNet = &network;
-
 	int width, height;
 	int8_t keyDown = 0;
 	bool justPressed = false;
@@ -266,7 +238,8 @@ int main(int argc, char** argv) {
 	size_t trainingOffset;
 
 	// Load and train the network before we begin
-	std::vector<std::string> filenames;
+	std::vector<std::vector<float>> files;
+	std::vector<uint32_t> fileIndices;
 	//loadTrainingFiles(filenames, MY_PATH);
 	//doTrainingSamples(compute, network, MY_PATH);
 
@@ -315,18 +288,19 @@ int main(int argc, char** argv) {
 			if (enterPressed == false) {
 				// Enter was just pressed
 				trainingOffset = 0;
-				loadTrainingFiles(filenames, MY_PATH);
 				trainingToggle = !trainingToggle;
+				if (trainingToggle) {
+					loadTrainingFiles(files, fileIndices, MY_PATH);
+				}
 			}
 			enterPressed = true;
 
-			//doTrainingSamples(compute,network, MY_PATH);
 		} else {
 			enterPressed = false;
 		}
 
 		if (trainingToggle) {
-			doSomeSamples(compute, network, MY_PATH, filenames, trainingOffset, TRAINSIZE);
+			doSomeSamples(compute, network, MY_PATH, files, fileIndices, trainingOffset, TRAINSIZE);
 		}
 
 

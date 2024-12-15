@@ -159,7 +159,7 @@ Layer& Layer::readLayer(std::fstream& stream) {
 	stream.read(static_cast<char*>(static_cast<void*>(&weightsSize)), sizeof(weightsSize));
 
 	// Read the weights
-	std::cout << "Allocating size " << weightsSize << std::endl;
+	std::cout << "Allocating weights " << weightsSize << std::endl;
 	float* weights = new float[weightsSize];
 	if (weights == nullptr) {
 		std::cerr << "Failed to allocate weights buffer during read of file" << std::endl;
@@ -172,6 +172,10 @@ Layer& Layer::readLayer(std::fstream& stream) {
 	// Write the biases
 	std::cout << "Allocating neurons " << neuronSize << std::endl;
 	Neuron* neurons = new Neuron[neuronSize];
+	if (neurons == nullptr) {
+		std::cerr << "Failed to allocate weights buffer during read of file" << std::endl;
+		return *this;
+	}
 	for (size_t i=0;i<neuronSize;i++) {
 		// Write each bias
 		stream.read(static_cast<char*>(static_cast<void*>(&neurons[i].bias)), sizeof(float));
