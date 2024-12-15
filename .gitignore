@@ -3,3 +3,5 @@ digitrec
 samples/**
 samples
 vgcore*
+models/**
+*.skm
