@@ -223,7 +223,9 @@ Network& Network::save(std::string const& directory) {
 	// [float[] : output layer biases]
 	//
 
-	std::filesystem::create_directory(directory);
+	if (directory.size() > 0) {
+		std::filesystem::create_directory(directory);
+	}
 
 	// Now get the full filepath
 	std::string fullPath = directory + this->networkFilename;
@@ -232,6 +234,7 @@ Network& Network::save(std::string const& directory) {
 	// Open the file
 	std::fstream file(fullPath, std::ios::out | std::ios::binary);
 	if (file.bad()) {
+		std::cerr << "Failed ot open file!" << std::endl;
 		return *this;
 	}
 

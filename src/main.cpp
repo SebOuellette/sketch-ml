@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <thread>
 
+#include "defines.h"
 #include "network.h"
 #include "neuron.h"
 #include "oglopp/camera.h"
@@ -26,6 +27,9 @@ using namespace oglopp;
 #define SAMPLES_DIR	"samples/"
 
 #define TRAINSIZE 5
+
+#define KEY_SAVE_MODEL	GLFW_KEY_PAGE_DOWN
+
 
 class InputBuffer {
 public:
@@ -139,6 +143,28 @@ void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint3
 	}
 }
 
+void setExpectedOutput(Network& network) {
+	Layer* inputLayer = &network.getLayers().front();
+	Layer* outputLayer = &network.getLayers().back();
+	Neuron* inputMap = nullptr;
+	Neuron* outputMap = nullptr;
+
+	// Map the input buffer
+	inputMap = static_cast<Neuron*>(inputLayer->getNeurons().map(oglopp::SSBO::READ));
+	// Set the expected values in the final layer
+	outputMap = static_cast<Neuron*>(outputLayer->getNeurons().map(oglopp::SSBO::BOTH));
+
+	// Set all the values to 0, unless they match the expected index
+	for (size_t l=0;l<outputLayer->getNeurons().getSize() / sizeof(Neuron);l++) {
+		outputMap[l].expected = inputMap[l].value;
+	}
+
+	// Unmap the neurons
+	outputLayer->getNeurons().unmap();
+	// Unmap the neurons
+	inputLayer->getNeurons().unmap();
+}
+
 void doSomeSamples(Compute& compute, Network& network, std::string const& parentDir, std::vector<std::vector<float>>& files, std::vector<uint32_t>& fileIndices, size_t& offset, size_t countToDo) {
 	std::string dir = parentDir + SAMPLES_DIR;
 	std::filesystem::create_directory(dir);
@@ -172,10 +198,11 @@ void doSomeSamples(Compute& compute, Network& network, std::string const& parent
 		}
 
 		// Unmap the neurons
+		outputLayer->getNeurons().unmap();
+		// Unmap the neurons
 		inputLayer->getNeurons().unmap();
 
-		// Unmap the neurons
-		outputLayer->getNeurons().unmap();
+
 
 
 		// Do forward propagation
@@ -225,9 +252,12 @@ int main(int argc, char** argv) {
 	// Create a network
 	//Network network(32*32, {100*100, 50*50, 20*20}, 32*32);
 	Network network; //(32*32, {50*50, 20*20, 10, 20*20, 50*50}, 32*32);
+	std::string modelPath;
 	if (argc < 2) {
-		network.setup(32*32, {50*50, 20*20, 10, 20*20, 50*50}, 32*32);
+		modelPath = MY_PATH + MODEL_DIRECTORY;
+		network.setup(32*32, {50*50, 20*20, 16, 20*20, 50*50}, 32*32);
 	} else {
+		modelPath = "";
 		network.setup(argv[1]);
 	}
 
@@ -256,17 +286,19 @@ int main(int argc, char** argv) {
 		Layer* output = &network.getLayers().back();
 		Neuron* neurons = static_cast<Neuron*>(output->getNeurons().map(oglopp::SSBO::BOTH));
 		for (int i=0;i<10;i++) {
-		 	neurons[i].expected = window.keyPressed(GLFW_KEY_0 + i) ? 1.0 : 0.0;
-			keyDown = (neurons[i].expected > 0) ? GLFW_KEY_0 + i : keyDown;
+		 	//neurons[i].expected = window.keyPressed(GLFW_KEY_0 + i) ? 1.0 : 0.0;
+			keyDown = window.keyPressed(GLFW_KEY_0 + i) ? GLFW_KEY_0 + i : keyDown;
 		}
 		for (int i=0;i<26;i++) {
-			neurons[i + 10].expected = window.keyPressed(GLFW_KEY_A + i) ? 1.0 : 0.0;
-			keyDown = (neurons[i + 10].expected > 0) ? GLFW_KEY_A + i : keyDown;
+			//neurons[i + 10].expected = window.keyPressed(GLFW_KEY_A + i) ? 1.0 : 0.0;
+			keyDown = window.keyPressed(GLFW_KEY_A + i) ? GLFW_KEY_A + i : keyDown;
 		}
 		output->getNeurons().unmap();
 
 		if (keyDown > 0 && !justPressed) {
 			justPressed = true;
+			setExpectedOutput(network);
+			std::cout << "pressed" << std::endl;
 			saveTrainingElement(network.getLayers().front().getNeurons(), keyDown, MY_PATH);
 
 			network.backProp(compute);
@@ -310,7 +342,7 @@ int main(int argc, char** argv) {
 		// Saving the network
 		if (window.keyPressed(GLFW_KEY_PAGE_DOWN)) {
 			if (pgdownPressed == false) {
-				network.save(MY_PATH + MODEL_DIRECTORY);
+				network.save(modelPath);
 			}
 			pgdownPressed = true;
 		} else {
