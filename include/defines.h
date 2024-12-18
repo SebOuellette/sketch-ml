@@ -4,4 +4,6 @@
 #define MODEL_EXTENSION	".skm"
 #define MODEL_DIRECTORY "models/"
 
+#define SKML_VERSION	"0.2"
+
 #endif
