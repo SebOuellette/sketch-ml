@@ -117,15 +117,25 @@ size_t Network::size() {
 
 /* @brief Perform a feed forward computation on the network. Performs layer 1, then 2, then 3, etc...
  * @param[in] compute	A reference to a compute shader to use
+ * @param[in] fromLayer	The layer to start propagation from. This will act as the 'input' layer. E.x. Can be the middle layer in an autoencoder to just perform decoding.
+ * @param[in] toLayer	The layer to finish propagation at. This will act as the 'output' layer. E.x. Can be the middle layer in an autoencoder to just perform encoding.
  * @return	A reference to the output layer storing the calculated result
 */
-Layer& Network::feedForward(oglopp::Compute& compute) {
+Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t toLayer) {
+	if (this->size() < 2) {
+		std::cerr << "Failed to feed forward. The network has fewer than 2 layers." << std::endl;
+		return this->layers[this->size() -1];
+	}
+
 	// We start with the first hidden layer, so start by providing the first layer as the "last" layer
 	Layer* lastLayer = &this->layers[0];
 	Layer* thisLayer = nullptr;
 
+	size_t layerStartIndex = std::min(fromLayer + 1, this->size() - 1);
+	size_t layerStopIndex = std::min(toLayer, this->size() - 1);
+
 	// Feed forward each layer one at a time
-	for (size_t i=1;i<this->size();i++) {
+	for (size_t i=layerStartIndex;i<=layerStopIndex;i++) {
 		// Get the current layer
 		thisLayer = &this->layers[i];
 
@@ -142,16 +152,29 @@ Layer& Network::feedForward(oglopp::Compute& compute) {
 
 /* @brief Perform back propagation on the network
  * @param[in] compute	A reference to a compute shader to use
+ * @param[in] fromLayer	The layer to start backpropagation from. This will act as the 'output' layer. E.x. Can be the middle layer in an autoencoder to just backpropagate the encoding phase.
+ * @param[in] toLayer	The layer to finish backpropagation at. This will act as the 'input' layer. E.x. Can be the middle layer in an autoencoder to just backpropagate the decoding phase.
  * @return	A reference to the output layer storing the calculated result
 */
-Network& Network::backProp(oglopp::Compute& compute) {
+Network& Network::backProp(oglopp::Compute& compute, size_t fromLayer, size_t toLayer) {
+	if (this->size() < 2) {
+		std::cerr << "Failed to backpropagate. The network has fewer than 2 layers." << std::endl;
+		return *this;
+	}
+
 	// We start with the first hidden layer, so start by providing the first layer as the "last" layer
 	Layer* lastLayer = nullptr;
 	Layer* thisLayer = nullptr;
 
+	size_t layerStartIndex = std::min(fromLayer, this->size()-1);
+	size_t layerStopIndex = std::min(toLayer + 1, layerStartIndex);
+
+	//std::cout << "Start at " << layerStartIndex << " - stop at " << layerStopIndex << std::endl;
+
 	// Feed forward each layer one at a time
 	bool isLastLayer = true;
-	for (size_t i=this->size()-1;i>0;i--) {
+	for (size_t i=layerStartIndex;i>=layerStopIndex;i--) {
+	//for (size_t i=this->size()-1;i>0;i--) {
 		// Get the current layer
 		lastLayer = &this->layers[i-1];
 		thisLayer = &this->layers[i];
@@ -240,17 +263,17 @@ Network& Network::save(std::string const& directory) {
 
 	// Write hidden layer count
 	uint32_t hiddenLayers = this->layers.size() - 2; // includes hidden and output actually but...
-	std::cout << "Hidden layers " << hiddenLayers << std::endl;
+	//std::cout << "Hidden layers " << hiddenLayers << std::endl;
 	file.write(static_cast<char*>(static_cast<void*>(&hiddenLayers)), sizeof(hiddenLayers));
 
 	// Write input neuron count
 	uint32_t inputNeuronCount = this->layers[0].getNeurons().getSize() / sizeof(Neuron); // includes hidden and output actually but...
-	std::cout << "Input neurons " << inputNeuronCount << std::endl;
+	//std::cout << "Input neurons " << inputNeuronCount << std::endl;
 	file.write(static_cast<char*>(static_cast<void*>(&inputNeuronCount)), sizeof(inputNeuronCount));
 
 	// Write all layers except input
 	for (size_t i=1;i<this->layers.size();i++) {
-		std::cout << "Saving layer " << i << std::endl;
+		//std::cout << "Saving layer " << i << std::endl;
 		this->layers[i].writeLayer(file);
 	}
 
@@ -291,12 +314,12 @@ Network& Network::load(std::string const& networkFile) {
 	// Write hidden layer count (plus output layer)
 	uint32_t hiddenLayers;
 	file.read(static_cast<char*>(static_cast<void*>(&hiddenLayers)), sizeof(hiddenLayers));
-	std::cout << "Hidden layers " << hiddenLayers << std::endl;
+	//std::cout << "Hidden layers " << hiddenLayers << std::endl;
 
 	// Write input neuron count
 	uint32_t inputNeuronCount;
 	file.read(static_cast<char*>(static_cast<void*>(&inputNeuronCount)), sizeof(inputNeuronCount));
-	std::cout << "Input neurons " << inputNeuronCount << std::endl;
+	//std::cout << "Input neurons " << inputNeuronCount << std::endl;
 
 	// Setup input layer normally
 	this->layers.resize(hiddenLayers + 2);
@@ -304,7 +327,7 @@ Network& Network::load(std::string const& networkFile) {
 
 	// Read all layers except input
 	for (size_t i=0;i<=hiddenLayers;i++) {
-		std::cout << "Reading " << i + 1 << std::endl;
+		//std::cout << "Reading " << i + 1 << std::endl;
 		this->layers[i + 1].readLayer(file);
 	}
 

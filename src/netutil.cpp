@@ -131,9 +131,17 @@ void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const
 
 	countToDo = glm::min(countToDo, files.size());
 
+	if (countToDo == 0) {
+		return;
+	}
+
+	std::cout << "countToDo is " << countToDo << " - file count is " << files.size() << " - offset is " << offset << std::endl;
+
 	//size_t expectedIndex = 0;
 	for (size_t i=0;i<countToDo;i++) {
 		size_t fileIndex = fileIndices[(offset + i) % fileIndices.size()];
+
+		std::cout << "File size is " << files[fileIndex].size() << std::endl;
 
 		// Map the input buffer
 		inputMap = static_cast<Neuron*>(inputLayer->getNeurons().map(oglopp::SSBO::BOTH));
@@ -156,9 +164,6 @@ void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const
 		outputLayer->getNeurons().unmap();
 		// Unmap the neurons
 		inputLayer->getNeurons().unmap();
-
-
-
 
 		// Do forward propagation
 		network.feedForward(compute);

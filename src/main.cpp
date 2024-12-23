@@ -72,9 +72,12 @@ int main(int argc, char** argv) {
 				<< "-t [type]\tOne of 'classify,deep'" << std::endl
 				<< "-c [kernel]\tMake the previous hidden layer a convolutional layer. 'kernel' specifies which kernel containing a set of predefined filters to use." << std::endl
 				<< "-L [neurons]\tAdd a new (hidden) layer of some size." << std::endl
+				<< "-l [layer type]\tSet the layer type ''"
 				<< "-I [neurons]\tSpecify the number of neurons to use in the input layer." << std::endl
 				<< "-O [neurons]\tSpecify the number of neurons to use in the output layer." << std::endl
-				<< "-T [iterations]\tTrain the network for some number of 'iterations' then save the model and exit." << std::endl;
+				<< "-T [iterations]\tTrain the network for some number of 'iterations' then save the model and exit." << std::endl
+				<< "-C [channelMap]\tSelect a set of channels to use for each pixel. Any of the following characters can be included or excluded. The chosen options must be appended together into one non-delimited word. Options are: 'rgba'. Choose any single channel for black/white mode." << std::endl
+				;
 				exit(0); // Close the program after displaying help
 				break;
 		}

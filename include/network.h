@@ -46,15 +46,20 @@ public:
 
 	/* @brief Perform a feed forward computation on the network. Performs layer 1, then 2, then 3, etc...
 	 * @param[in] compute	A reference to a compute shader to use
+	 * @param[in] fromLayer	The layer to start propagation from. This will act as the 'input' layer. E.x. Can be the middle layer in an autoencoder to just perform decoding.
+	 * @param[in] toLayer	The layer to finish propagation at. This will act as the 'output' layer. E.x. Can be the middle layer in an autoencoder to just perform encoding.
 	 * @return	A reference to the output layer storing the calculated result
 	*/
-	Layer& feedForward(oglopp::Compute& compute);
+	Layer& feedForward(oglopp::Compute& compute, size_t fromLayer = 0, size_t toLayer = static_cast<size_t>(~0x0));
+
 
 	/* @brief Perform back propagation on the network
 	 * @param[in] compute	A reference to a compute shader to use
+	 * @param[in] fromLayer	The layer to start backpropagation from. This will act as the 'output' layer. E.x. Can be the middle layer in an autoencoder to just backpropagate the encoding phase.
+	 * @param[in] toLayer	The layer to finish backpropagation at. This will act as the 'input' layer. E.x. Can be the middle layer in an autoencoder to just backpropagate the decoding phase.
 	 * @return	A reference to the output layer storing the calculated result
 	*/
-	Network& backProp(oglopp::Compute& compute);
+	Network& backProp(oglopp::Compute& compute, size_t fromLayer = static_cast<size_t>(~0x0), size_t toLayer = 0);
 
 	/* @brief Bind the network to a shader
 	 * @param[in] shader	The shader object to bind the layers' ssbo objects for display
@@ -77,6 +82,25 @@ public:
 	 * @return					A reference to this network object
 	*/
 	Network& load(std::string const& networkFile);
+
+	/* @brief Convert a character to an index for classification learning
+	 * @param[in] key	The ascii code of the character of the key that was pressed
+	 * @return			The index in the output list that corresponds with the pressed key
+	*/
+	static size_t charToIndex(char key);
+
+	/* @brief Save the layer to a file
+	 * @param[in] key		The classification token of the training element. For unsupervised learning this is ignored.
+	 * @param[in] parentDir	The directory where the '.raw' sample files are located
+	*/
+	static int saveTrainingElement(oglopp::SSBO& buffer, uint8_t key, std::string const& parentDir);
+
+	/* @brief Load some data from a raw sample file.
+	*/
+	static void loadTrainingFiles(std::vector<Layer::Channels>& files, std::vector<uint32_t>& fileIndices, std::string const& parentDir);
+	void setExpectedOutput(Network& network);
+	void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const& parentDir, std::vector<std::vector<float>>& files, std::vector<uint32_t>& fileIndices, size_t& offset, size_t countToDo);
+
 
 private:
 	std::vector<oglopp::Rectangle*> monitors;

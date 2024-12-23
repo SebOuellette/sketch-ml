@@ -12,6 +12,15 @@ public:
 	Layer() = default;
 	~Layer() = default;
 
+	typedef union {
+		std::vector<float> bw; // Black & White
+		std::vector<float[2]> rg; // Red + Green
+		std::vector<float[2]> gb; // Green + blue
+		std::vector<float[2]> rb; // Red + blue
+		std::vector<float[3]> rgb; // Red + Green + Blue
+		std::vector<float[4]> rgba; // Red + Green + Blue + Alpha
+	} Channels;
+
 	/* @brief Setup the SSBO with some neurons
 	 * @param[in] neuronCount	The number of neurons to randomly initialize and prepare in the SSBO
 	 * @param[in] weightCount	The number of weights per neuron (the number of neurons in the last layer)
