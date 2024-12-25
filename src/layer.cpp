@@ -4,87 +4,176 @@
 #include "oglopp/ssbo.h"
 #include <iostream>
 
+/* @brief 	Virtual implementation to return FULLY_CONNECTED
+ * @return	Always returns Type::FULLY_CONNECTED
+*/
+Layer::Type Layer::FCSettings::getType() const {
+	return Layer::Type::FULLY_CONNECTED;
+}
+
+/* @brief 	Virtual implementation to return FULLY_CONNECTED
+ * @return	Always returns Type::CONVOLUTION
+*/
+Layer::Type Layer::ConvolutionSettings::getType() const {
+	return Layer::Type::CONVOLUTION;
+}
+
+/* @brief 	Virtual implementation to return POOLING
+ * @return	Always returns Type::POOLING
+*/
+Layer::Type Layer::PoolSettings::getType() const {
+	return Layer::Type::POOLING;
+}
+
+
+
+/* @brief Setup the layer using new neuron dimensions and weight dimensions. Also allow specifying the new layer
+ * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
+ * @param[in] newType		The new type of the layer. Specifies which component of LayerSettings to read
+ * @param[in] newLayerSettings	A set of variables specific to the variable type.
+ * @return					A status code. 0 Upon success, <0 upon failure.
+*/
+int8_t Layer::setup(glm::ivec3 const& newNeuronDims, Type newType, LayerSettings newLayerSettings) {
+	if (newNeuronDims.x == 0 || newNeuronDims.y == 0 || newNeuronDims.z == 0) {
+		std::cerr << "Failed to setup network layer. Neuron dimensions contained 0 in at least one dimension." << std::endl;
+		return -1;
+	}
+
+	// Copy over the dimensions of components
+	this->neuronDimensions = newNeuronDims;
+	this->type = newType;
+
+	// Setup absolute linear sizes for buffer allocation
+	const uint64_t NEURON_COUNT = Layer::getTotalElements(newNeuronDims);
+
+	// Allocate some neurons
+	Neuron* pNeurons = new Neuron[NEURON_COUNT];
+
+	// Initialize the data
+	for (uint32_t i=0;i<NEURON_COUNT;i++) {
+		pNeurons[i].bias 	= static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
+		pNeurons[i].value 	= 0.0;
+		pNeurons[i].expected = 0.0;
+	}
+
+	// Load the neurons into the SSBO
+	this->neurons.load(pNeurons, sizeof(Neuron) * NEURON_COUNT);
+	delete[] pNeurons;
+
+	// Allocate the weights
+	size_t totalWeightCount = 0;
+	switch (newType) {
+		case Type::CONVOLUTION:
+			this->weightDimensions = newLayerSettings.settingsConv.filterSize;
+			totalWeightCount = newLayerSettings.settingsConv.filterCount * Layer::getTotalElements(newLayerSettings.settingsConv.filterSize);
+			break;
+
+		case Type::FULLY_CONNECTED:
+			this->weightDimensions = Layer::makeSingleDimensional(newLayerSettings.settingsFC.weightsCount);
+			totalWeightCount = NEURON_COUNT * newLayerSettings.settingsFC.weightsCount; // Weight count equals the number of neurons in the next layer. This neurons * next neurons = this total weights.
+			break;
+
+		case Type::POOLING:
+		case Type::OUTPUT:
+			this->weightDimensions = glm::ivec3(0, 0, 0); // zero cause no weights
+			totalWeightCount = 0;
+			break;
+	};
+
+	// Only allocate weights if we decided that this layer should have weights.
+	if (totalWeightCount != 0) {
+		float* pWeights = new float[totalWeightCount];// [weights for neuron 1][weights for neuron 2][weights for neuron 3][[weight 1][weight 2][weight 3] weights for neuron 4]
+
+		for (uint32_t i=0;i<totalWeightCount;i++) {
+			pWeights[i] = (static_cast<float>(static_cast<double>(rand()) / RAND_MAX) - 0.5) * 2.0;
+		}
+
+		this->weights.load(pWeights, sizeof(float) * totalWeightCount);
+		delete[] pWeights;
+	}
+
+	return 0;
+}
+
+/* @brief Setup a fully-connected layer
+ * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
+ * @param[in] newSettings	The FC settings object contianing extra information
+ * @return					A status code
+*/
+int8_t Layer::setupFC(glm::ivec3 const& newNeuronDims, FCSettings newSettings) {
+	return this->setup(newNeuronDims, Type::FULLY_CONNECTED, {newSettings});
+}
+
+/* @brief Setup a convolutional layer
+ * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
+ * @param[in] newSettings	The FC settings object contianing extra information
+ * @return					A status code
+*/
+int8_t Layer::setupConv(glm::ivec3 const& newNeuronDims, ConvolutionSettings newSettings) {
+	return this->setup(newNeuronDims, Type::CONVOLUTION, { .settingsConv = newSettings});
+}
+
+/* @brief Setup a pooling layer
+ * @param[in] newNeuronDims	The new size of the input neurons in 3 dimensional space
+ * @param[in] newSettings	The FC settings object contianing extra information
+ * @return					A status code
+*/
+int8_t Layer::setupPool(glm::ivec3 const& newNeuronDims, PoolSettings newSettings) {
+	return this->setup(newNeuronDims, Type::POOLING, { .settingsPool = newSettings });
+}
+
 /* @brief Setup the SSBO with some neurons
  * @param[in] neuronCount	The number of neurons to randomly initialize and prepare in the SSBO
  * @param[in] weightCount	The number of weights per neuron (the number of neurons in the last layer)
 */
 Layer& Layer::setup(uint32_t const neuronCount, uint32_t const weightCount) {
-	if (neuronCount == 0) {
-		return *this;
-	}
+	FCSettings mySettings;
+	mySettings.weightsCount = weightCount;
 
-	// Allocate some neurons
-	Neuron* pNeurons = new Neuron[neuronCount];
-
-	for (uint32_t i=0;i<neuronCount;i++) {
-		pNeurons[i].bias 	= static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
-		//neurons[i].weight 	= static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
-		pNeurons[i].value 	= 0.0; //static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
-		pNeurons[i].expected = 0.0; //= (static_cast<float>(static_cast<double>(rand()) / RAND_MAX) - 0.5) * 2.0;
-	}
-
-	this->neurons.load(pNeurons, sizeof(Neuron) * neuronCount);
-	delete[] pNeurons;
-
-	// Allocate the weights
-	if (weightCount == 0) {
-		return *this;
-	}
-
-	const size_t NUM_WEIGHTS = neuronCount * weightCount;
-	float* pWeights = new float[NUM_WEIGHTS];// [weights for neuron 1][weights for neuron 2][weights for neuron 3][[weight 1][weight 2][weight 3] weights for neuron 4]
-
-	for (uint32_t i=0;i<NUM_WEIGHTS;i++) {
-		pWeights[i] = (static_cast<float>(static_cast<double>(rand()) / RAND_MAX) - 0.5) * 2.0;
-	}
-
-	this->weights.load(pWeights, sizeof(float) * NUM_WEIGHTS);
-	delete[] pWeights;
+	this->setup(Layer::makeSingleDimensional(neuronCount), Type::FULLY_CONNECTED, { mySettings });
 	return *this;
 }
 
-/* @brief Setup the layer using an SSBO
- * @param[in] neuronCopy	A constant reference to an SSBO object to copy into the neurons
- * @return					A reference to this layer object
+/* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
+ * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
+ * @return					A reference to this layer
 */
-Layer& Layer::setup(oglopp::SSBO const& neuronCopy) {
-	return *this;
-}
-
-/* @brief Perform the feed forward algorithm on this layer using a reference to the previous layer. Performs on the GPU with oglopp compute shaders
- * @param[in] lastLayer	A reference to the last layer to be fed into this layer
- * @return				A reference to this layer
-*/
-Layer& Layer::feedForward(Layer& lastLayer, oglopp::Compute& compute) {
+Layer& Layer::feedForward(Layer& nextLayer, oglopp::Compute& compute) {
 	this->getNeurons().bind(0);
-	lastLayer.getNeurons().bind(1);
+	nextLayer.getNeurons().bind(1);
 	this->getWeights().bind(2);
 
 	//std::cout << "last count is " << lastLayer.getNeurons().getSize() / sizeof(Neuron) << " while this is " << this->getNeurons().getSize() / sizeof(Neuron) << std::endl;
 	compute.use();
-	compute.setInt("lastCount", lastLayer.getNeurons().getSize() / sizeof(Neuron));
+	compute.setInt("nextCount", nextLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", false);
-	compute.dispatch(this->neurons.getSize() / sizeof(Neuron), 1);
+	compute.dispatch(nextLayer.getNeurons().getSize() / sizeof(Neuron), 1);
 
 	oglopp::SSBO::unbind();
 
 	return *this;
 }
 
-Layer& Layer::backPropagate(Layer& lastLayer, oglopp::Compute& compute, bool isLastLayer) {
+/* @brief Perform backpropagation on the layer, given the error/expected value from the next layer.
+ * @param[in] nextLayer	A reference to the next layer that will contain either the expected value (if it's OUTPUT), or the carried error from backpropagation (if it's a hidden layer).
+ * @param[in] compute	A reference to the compute shader used for backpropagation
+ * @return				A reference to this layer object after backpropagation is performed
+*/
+Layer& Layer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) {
 	this->getNeurons().bind(0);
-	lastLayer.getNeurons().bind(1);
+	nextLayer.getNeurons().bind(1);
 	this->getWeights().bind(2);
 
-	//std::cout << "last count is " << lastLayer.getNeurons().getSize() / sizeof(Neuron) << " while this is " << this->getNeurons().getSize() / sizeof(Neuron) << std::endl;
 	compute.use();
-	compute.setBool("isLastLayer", isLastLayer);
-	compute.setInt("lastCount", lastLayer.getNeurons().getSize() / sizeof(Neuron));
+	compute.setBool("isLastLayer", nextLayer.isLastLayer());
+	compute.setInt("thisLayerType",	static_cast<int>(this->getType()));
+	compute.setInt("nextLayerType", static_cast<int>(this->getType()));
+	compute.setInt("nextCount", nextLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", true);
 	compute.setFloat("learningRate", 0.003);
-	compute.dispatch(lastLayer.getNeurons().getSize() / sizeof(Neuron), 1);
+	compute.dispatch(this->getNeurons().getSize() / sizeof(Neuron), 1);
 
 	oglopp::SSBO::unbind();
 
@@ -185,4 +274,57 @@ Layer& Layer::readLayer(std::fstream& stream) {
 	this->neurons.load(neurons, neuronSize * sizeof(Neuron));
 	delete[] neurons;
 	return *this;
+}
+
+/* @brief Set the layer type. Does not setup or destroy weights.
+ * @param[in] newType	The new type of the layer to set
+ * @return				A reference to this layer
+*/
+Layer& Layer::setType(Type const& newType) {
+	this->type = newType;
+
+	return *this;
+}
+
+/* @brief Get a constant reference to the type variable
+ * @return	A constant reference to the type variable
+*/
+Layer::Type const& Layer::getType() const {
+	return this->type;
+}
+
+/* @brief Get the dimensions of the neuron list
+ * @return A constant reference to the neuron dimensions object
+*/
+glm::ivec3 const& Layer::neuronSize() {
+	return this->weightDimensions;
+}
+
+/* @brief Get the dimensions of the weight list
+ * @return A constant reference to the weight dimensions object
+*/
+glm::ivec3 const& Layer::weightSize() {
+	return this->neuronDimensions;
+}
+
+/* @brief Get the total number of elements from a vec3 dimensions object
+ * @return	The total number of elements in a 3 dimensional space
+*/
+uint64_t Layer::getTotalElements(glm::ivec3 dimensions) {
+	return dimensions.x * dimensions.y * dimensions.z;
+}
+
+/* @brief Turn a single count into a 3 dimensional list with only a single dimension occupied
+ * @param[in] count	The number of elements
+ * @return			The count inserted into the x component of a vector
+*/
+constexpr glm::ivec3 Layer::makeSingleDimensional(uint64_t count) {
+	return glm::ivec3(count, 1, 1);
+}
+
+/* @brief True if this is the last layer (type is OUTPUT. False otherwise)
+ * @return	True if .getType() returns Type::OUTPUT.
+*/
+bool Layer::isLastLayer() const {
+	return Type::OUTPUT == this->type;
 }

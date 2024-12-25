@@ -214,11 +214,6 @@ int main(int argc, char** argv) {
 		}
 
 
-		//if (window.keyPressed(GLFW_KEY_RIGHT_ALT)) {
-		//	network.backProp(compute);
-		//}
-
-
 		window.clear();
 
 		shader.use();

@@ -10,6 +10,15 @@ struct Neuron {
     float expected; // For non-final-layers, this value represents the 'output_delta' for the training session (only in backprop 2)
 };
 
+const uint TYPE_FULLY_CONNECTED = 0; // Fully conected layers are used in ANNs, and in stage 2 of CNNs.
+const uint TYPE_CONVOLUTION = 1; // Convolutional layers are used in stage 1 of CNNs
+const uint TYPE_POOLING = 2; // Pooling layers are used in stage 1 of CNNs
+const uint TYPE_OUTPUT = 3; // The output layer of any network. Indicates no weights are allocated.
+
+const uint POOLMETHOD_MAX = 0; // The maximum value found in the pooled input
+const uint POOLMETHOD_AVG = 1; // The average value of the pooled input
+const uint POOLMETHOD_MIN = 2; // The minimum value found in the pooled input
+
 layout(std430, binding = 0) buffer ThisBuf {
     Neuron neurons[];
 };
@@ -23,10 +32,12 @@ layout(std430, binding = 2) buffer Weights {
 };
 
 uniform bool isLastLayer;
-uniform int lastCount;
+uniform int nextCount;
 uniform int thisCount;
 uniform bool backProp;
 uniform float learningRate;
+
+// ==== G E N E R A L ====
 
 // Soft step activation function
 float activation(float x) {
@@ -49,52 +60,30 @@ float valCostD(float actual, float expected) {
     return 2.0 * (actual - expected);
 }
 
+// ==== F U L L Y - C O N N E C T E D ====
+
+// @brief Calculate the Weight INDEX given the neuron index in layer A, and neuron index in layer B. Find the weight connecting the two neurons.
+uint windex(uint neuronIndexLayerA, uint neuronIndexLayerB) {
+    return neuronIndexLayerB * thisCount + neuronIndexLayerA;
+}
+
 float calcZ(uint index) {
     uint weightIndex = 0; // Weight index
-
     double newValue = 0;
 
-    for (uint i = 0; i < lastCount; i++) {
-        weightIndex = index * lastCount + i; // Each larger block in weights is assocated with 'this' index
-        newValue += weights[weightIndex] * otherNeurons[i].value;
+    for (uint i = 0; i < thisCount; i++) {
+        weightIndex = windex(i, index); // Each larger block in weights is assocated with 'this' index
+        newValue += weights[weightIndex] * neurons[i].value;
     }
 
-    return float(newValue) + neurons[index].bias;
+    return float(newValue) + otherNeurons[index].bias;
 }
 
 void doForwardPass(uint index) {
-    neurons[index].value = activation(calcZ(index));
+    otherNeurons[index].value = activation(calcZ(index));
 }
 
-uint windex(uint lastIndex, uint thisIndex) {
-    return thisIndex * lastCount + lastIndex;
-}
-
-void doBackProp1(uint index) {
-    // Update the expected values for the 'last' layer
-    double valueCost = 0.0; // total cost sum of all neurons between their expected values
-    uint weightIndex = 0; // Store the weight index
-    float thisValCost = 0.0; // Store the value cost for a single neuron
-
-    for (uint i = 0; i < thisCount; i++) {
-        // Each larger block in weights is assocated with 'this' index
-        // A 'block' is a list of listCount floats, in which there are thisCount number of blocks. Therefore this is how we iterate given 'index' and 'i'
-        weightIndex = windex(index, i);
-
-        thisValCost = valCost(neurons[i].value, neurons[i].expected);
-        valueCost += thisValCost;
-
-        weights[weightIndex] -= learningRate * otherNeurons[index].value * thisValCost; // THIS WORKED WITH MOST NUMBERS ???
-    }
-
-    valueCost /= thisCount;
-
-    neurons[index].bias -= learningRate * float(valueCost);
-    otherNeurons[index].expected = otherNeurons[index].value - float(valueCost) / 20.0; // dividing by 10 creates a batch of 10.. I think.. and it works? soo uhhh ? Why does everyone need calculus? It's just intuitive ratios. 5 is too low. 20 is good, 10 is good too.
-
-    // What?
-}
-
+// Fully-Connected layer backpropagation
 void doBackProp2(uint index) {
     // Output
     float thisActivationCost = 0.0;
@@ -104,41 +93,43 @@ void doBackProp2(uint index) {
     float delta = 0.0;
     uint weightIndex = 0;
 
-    for (uint i = 0; i < thisCount; i++) {
+    for (uint i = 0; i < nextCount; i++) {
         weightIndex = windex(index, i);
 
         if (isLastLayer) {
             // Calculate error and delta for last layer
-            error = learningRate * valCostD(neurons[i].value, neurons[i].expected);
+            error = learningRate * valCostD(otherNeurons[i].value, otherNeurons[i].expected);
         } else {
             // Calculate error and delta for hidden layer(s)
             // In this case, 'expected' is actually the calculated activation cost sum from the next layer, calculated from the last backpropagation phase on that layer
-            error = neurons[i].expected;
+            error = otherNeurons[i].expected;
         }
 
         // Calculate the activation derividive delta. We can use this for 3 things - adjusting weights, adjusting bias, and carrying backwards (using the derivitive of the last activation, which is the weight)
-        delta = activationD(neurons[i].value) * error;
+        delta = activationD(otherNeurons[i].value) * error;
         thisActivationCost += weights[weightIndex] * delta; // Carry over the weight before we adjust it
-        weights[weightIndex] -= otherNeurons[index].value * delta;
+        weights[weightIndex] -= neurons[index].value * delta;
 
         // Only adjust biases for the last layer if we're index 0. All threads have the same delta in theory.. so they will all set to the same
         // I just want to syncrhonize so they don't corrupt or whatever
         if (index == 0) {
-            neurons[i].bias -= delta; // The derivitive of z with respect to b is 1.0
+            otherNeurons[i].bias -= delta; // The derivitive of z with respect to b is 1.0
         }
     }
 
     // Carry the activation cost backwards
     // Carry 'output_delta' to the next (previous) layer
-    otherNeurons[index].expected = thisActivationCost;
+    neurons[index].expected = thisActivationCost;
 }
 
 void main() {
     uint index = gl_WorkGroupID.x; // This neuron index
 
     if (backProp) {
+        // Index is the index in this layer
         doBackProp2(index);
     } else {
+        // Index is the index in the next layer.
         doForwardPass(index);
     }
 }

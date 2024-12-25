@@ -19,6 +19,12 @@ public:
 	Network() = default;
 	~Network();
 
+	/* @brief Push a new layer onto the network. Also updates the generated model filename
+	 * @param[in] layer	A constant reference to the layer object that will be copied onto the stack
+	 * @return 			A reference to this network object
+	*/
+	Network& pushLayer(Layer const& layer);
+
 	/* @brief Setup the network based on a list of layers and sizes
 	 * @param[in] inputSize		The input layer size
 	 * @param[in] layerSizes	The number of neurons in each hidden layer
@@ -100,6 +106,11 @@ public:
 	static void loadTrainingFiles(std::vector<Layer::Channels>& files, std::vector<uint32_t>& fileIndices, std::string const& parentDir);
 	void setExpectedOutput(Network& network);
 	void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const& parentDir, std::vector<std::vector<float>>& files, std::vector<uint32_t>& fileIndices, size_t& offset, size_t countToDo);
+
+	/* @brief Generate a new model path for this network based on the setup layers.
+	 * @return	A reference to the networkFilename variable after the generated filename has been set
+	*/
+	std::string const& generateModelPath();
 
 
 private:

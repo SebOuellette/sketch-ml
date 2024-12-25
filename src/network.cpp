@@ -26,21 +26,27 @@ glm::vec3 calcRectPos(uint32_t index) {
 	return glm::vec3(-0.25 * (((index - 1) % RECTS_NUM_X) * 2.1) - 0.27, 0.25 - int((index - 1) / RECTS_NUM_X) * 0.25 * 2.1, 1.0);
 }
 
-/* @brief Setup the network based on a list of layers and sizes
+/* @brief Push a new layer onto the network. Also updates the generated model filename
+ * @param[in] layer	A constant reference to the layer object that will be copied onto the stack
+ * @return 			A reference to this network object
+*/
+Network& Network::pushLayer(Layer const& layer) {
+	// Push the layer
+	this->layers.push_back(layer);
+
+	// Update the model name
+	this->generateModelPath();
+
+	return *this;
+}
+
+/* @brief Setup an artificial fully-connected network based on a list of layers and sizes
  * @param[in] inputSize		The input layer size
  * @param[in] layerSizes	The number of neurons in each hidden layer
  * @param[in] outputSize	The ouput layer size
  */
 Network& Network::setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize) {
-	// Generate a filename
-	std::ostringstream filename;
-	filename << "skml_" << inputSize << "_";
-	for (size_t i=0;i<hiddenSizes.size();i++) {
-		filename << hiddenSizes[i] << "_";
-	}
-	filename << outputSize << "_" << std::to_string(time(NULL)) << "-" << std::to_string(rand()) << MODEL_EXTENSION;
-	this->networkFilename = filename.str();
-
+	// Preallocate some layers
 	this->layers.resize(2 + hiddenSizes.size());
 
 	// Setup input
@@ -56,6 +62,10 @@ Network& Network::setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_
 	// Setup output
 	this->layers[hiddenSizes.size() + 1].setup(outputSize, lastSize);
 
+	// Generate a model path based on the new layers
+	this->generateModelPath();
+
+	// Now setup the UI
 	return this->setupUI();
 }
 
@@ -127,23 +137,23 @@ Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t t
 		return this->layers[this->size() -1];
 	}
 
+	size_t layerStopIndex = std::min(toLayer, this->size() - 1);
+	size_t layerStartIndex = std::min(fromLayer, layerStopIndex);
+
 	// We start with the first hidden layer, so start by providing the first layer as the "last" layer
-	Layer* lastLayer = &this->layers[0];
+	Layer* nextLayer = nullptr;
 	Layer* thisLayer = nullptr;
 
-	size_t layerStartIndex = std::min(fromLayer + 1, this->size() - 1);
-	size_t layerStopIndex = std::min(toLayer, this->size() - 1);
-
 	// Feed forward each layer one at a time
-	for (size_t i=layerStartIndex;i<=layerStopIndex;i++) {
+	for (size_t i=layerStartIndex;i<layerStopIndex;i++) {
 		// Get the current layer
 		thisLayer = &this->layers[i];
 
-		// Feed forward the layer given the last layer
-		thisLayer->feedForward(*lastLayer, compute);
+		// Get the next layer
+		nextLayer = &this->layers[i + 1];
 
-		// Update last layer to the current layer for the next iteration
-		lastLayer = thisLayer;
+		// Feed forward the layer given the last layer
+		thisLayer->feedForward(*nextLayer, compute);
 	}
 
 	// Return a reference to the output layer
@@ -163,25 +173,20 @@ Network& Network::backProp(oglopp::Compute& compute, size_t fromLayer, size_t to
 	}
 
 	// We start with the first hidden layer, so start by providing the first layer as the "last" layer
-	Layer* lastLayer = nullptr;
+	Layer* nextLayer = nullptr;
 	Layer* thisLayer = nullptr;
 
-	size_t layerStartIndex = std::min(fromLayer, this->size()-1);
-	size_t layerStopIndex = std::min(toLayer + 1, layerStartIndex);
-
-	//std::cout << "Start at " << layerStartIndex << " - stop at " << layerStopIndex << std::endl;
+	size_t layerStartIndex = std::min(fromLayer, this->size()-2);
+	size_t layerStopIndex = std::min(toLayer, layerStartIndex);
 
 	// Feed forward each layer one at a time
-	bool isLastLayer = true;
 	for (size_t i=layerStartIndex;i>=layerStopIndex;i--) {
-	//for (size_t i=this->size()-1;i>0;i--) {
 		// Get the current layer
-		lastLayer = &this->layers[i-1];
+		nextLayer = &this->layers[i + 1];
 		thisLayer = &this->layers[i];
 
 		// Feed forward the layer given the last layer
-		thisLayer->backPropagate(*lastLayer, compute, isLastLayer);
-		isLastLayer = false;
+		thisLayer->backPropagate(*nextLayer, compute);
 	}
 
 	return *this;
@@ -201,13 +206,12 @@ Network& Network::draw(oglopp::Window& window, oglopp::Shader& shader) {
 			res = ceil(sqrt(this->layers[i].getNeurons().getSize() / sizeof(Neuron)));
 			//std::cout << "size is " << this->layers[i].getNeurons().getSize() / sizeof(Neuron) << ", res is " << res << std::endl;
 			//if (i == this->size() - 1) {
-			//	shader.setVec2("layerSize", glm::vec2(this->layers[this->layers.size()-1].getNeurons().getSize() / sizeof(Neuron), 1));
+				//shader.setVec2("layerSize", glm::vec2(this->layers[this->layers.size()-1].getNeurons().getSize() / sizeof(Neuron), 1));
 			//} else {
 				//shader.setVec2("layerSize", glm::vec2(res, res));
-				//}
+			//}
 
 			shader.setVec2("layerSize", glm::vec2(res, res));
-
 			shader.setVec3("screenPos", this->monitors[i]->getPosition());
 			shader.setVec3("screenSize", this->monitors[i]->getScale());
 			this->monitors[i]->draw(window, &shader);
@@ -333,4 +337,20 @@ Network& Network::load(std::string const& networkFile) {
 
 	file.close();
 	return *this;
+}
+
+/* @brief Generate a new model path for this network based on the setup layers.
+ * @return	A reference to the networkFilename variable after the generated filename has been set
+*/
+std::string const& Network::generateModelPath() {
+	// Generate a filename
+	std::ostringstream filename;
+	filename << "skml_";
+	for (size_t i=0;i<layers.size();i++) {
+		filename << this->layers[i].getNeurons().getSize() / sizeof(Neuron) << "_";
+	}
+	filename << std::to_string(time(NULL)) << "-" << std::to_string(rand()) << MODEL_EXTENSION;
+
+	this->networkFilename = filename.str();
+	return this->networkFilename;
 }
