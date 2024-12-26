@@ -2,38 +2,16 @@
 #include "neuron.h"
 #include "oglopp/compute.h"
 #include "oglopp/ssbo.h"
+#include <csignal>
 #include <iostream>
-
-/* @brief 	Virtual implementation to return FULLY_CONNECTED
- * @return	Always returns Type::FULLY_CONNECTED
-*/
-Layer::Type Layer::FCSettings::getType() const {
-	return Layer::Type::FULLY_CONNECTED;
-}
-
-/* @brief 	Virtual implementation to return FULLY_CONNECTED
- * @return	Always returns Type::CONVOLUTION
-*/
-Layer::Type Layer::ConvolutionSettings::getType() const {
-	return Layer::Type::CONVOLUTION;
-}
-
-/* @brief 	Virtual implementation to return POOLING
- * @return	Always returns Type::POOLING
-*/
-Layer::Type Layer::PoolSettings::getType() const {
-	return Layer::Type::POOLING;
-}
-
-
 
 /* @brief Setup the layer using new neuron dimensions and weight dimensions. Also allow specifying the new layer
  * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
  * @param[in] newType		The new type of the layer. Specifies which component of LayerSettings to read
- * @param[in] newLayerSettings	A set of variables specific to the variable type.
+ * @param[in] totalWeights	The total number of weights to allocate for this layer. Set to 0 if no weights are required.
  * @return					A status code. 0 Upon success, <0 upon failure.
 */
-int8_t Layer::setup(glm::ivec3 const& newNeuronDims, Type newType, LayerSettings newLayerSettings) {
+int8_t Layer::setup(glm::ivec3 const& newNeuronDims, Type newType, uint64_t totalWeights) {
 	if (newNeuronDims.x == 0 || newNeuronDims.y == 0 || newNeuronDims.z == 0) {
 		std::cerr << "Failed to setup network layer. Neuron dimensions contained 0 in at least one dimension." << std::endl;
 		return -1;
@@ -60,78 +38,19 @@ int8_t Layer::setup(glm::ivec3 const& newNeuronDims, Type newType, LayerSettings
 	this->neurons.load(pNeurons, sizeof(Neuron) * NEURON_COUNT);
 	delete[] pNeurons;
 
-	// Allocate the weights
-	size_t totalWeightCount = 0;
-	switch (newType) {
-		case Type::CONVOLUTION:
-			this->weightDimensions = newLayerSettings.settingsConv.filterSize;
-			totalWeightCount = newLayerSettings.settingsConv.filterCount * Layer::getTotalElements(newLayerSettings.settingsConv.filterSize);
-			break;
-
-		case Type::FULLY_CONNECTED:
-			this->weightDimensions = Layer::makeSingleDimensional(newLayerSettings.settingsFC.weightsCount);
-			totalWeightCount = NEURON_COUNT * newLayerSettings.settingsFC.weightsCount; // Weight count equals the number of neurons in the next layer. This neurons * next neurons = this total weights.
-			break;
-
-		case Type::POOLING:
-		case Type::OUTPUT:
-			this->weightDimensions = glm::ivec3(0, 0, 0); // zero cause no weights
-			totalWeightCount = 0;
-			break;
-	};
-
 	// Only allocate weights if we decided that this layer should have weights.
-	if (totalWeightCount != 0) {
-		float* pWeights = new float[totalWeightCount];// [weights for neuron 1][weights for neuron 2][weights for neuron 3][[weight 1][weight 2][weight 3] weights for neuron 4]
+	if (totalWeights != 0) {
+		float* pWeights = new float[totalWeights];// [weights for neuron 1][weights for neuron 2][weights for neuron 3][[weight 1][weight 2][weight 3] weights for neuron 4]
 
-		for (uint32_t i=0;i<totalWeightCount;i++) {
+		for (uint32_t i=0;i<totalWeights;i++) {
 			pWeights[i] = (static_cast<float>(static_cast<double>(rand()) / RAND_MAX) - 0.5) * 2.0;
 		}
 
-		this->weights.load(pWeights, sizeof(float) * totalWeightCount);
+		this->weights.load(pWeights, sizeof(float) * totalWeights);
 		delete[] pWeights;
 	}
 
 	return 0;
-}
-
-/* @brief Setup a fully-connected layer
- * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
- * @param[in] newSettings	The FC settings object contianing extra information
- * @return					A status code
-*/
-int8_t Layer::setupFC(glm::ivec3 const& newNeuronDims, FCSettings newSettings) {
-	return this->setup(newNeuronDims, Type::FULLY_CONNECTED, {newSettings});
-}
-
-/* @brief Setup a convolutional layer
- * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
- * @param[in] newSettings	The FC settings object contianing extra information
- * @return					A status code
-*/
-int8_t Layer::setupConv(glm::ivec3 const& newNeuronDims, ConvolutionSettings newSettings) {
-	return this->setup(newNeuronDims, Type::CONVOLUTION, { .settingsConv = newSettings});
-}
-
-/* @brief Setup a pooling layer
- * @param[in] newNeuronDims	The new size of the input neurons in 3 dimensional space
- * @param[in] newSettings	The FC settings object contianing extra information
- * @return					A status code
-*/
-int8_t Layer::setupPool(glm::ivec3 const& newNeuronDims, PoolSettings newSettings) {
-	return this->setup(newNeuronDims, Type::POOLING, { .settingsPool = newSettings });
-}
-
-/* @brief Setup the SSBO with some neurons
- * @param[in] neuronCount	The number of neurons to randomly initialize and prepare in the SSBO
- * @param[in] weightCount	The number of weights per neuron (the number of neurons in the last layer)
-*/
-Layer& Layer::setup(uint32_t const neuronCount, uint32_t const weightCount) {
-	FCSettings mySettings;
-	mySettings.weightsCount = weightCount;
-
-	this->setup(Layer::makeSingleDimensional(neuronCount), Type::FULLY_CONNECTED, { mySettings });
-	return *this;
 }
 
 /* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
@@ -145,10 +64,14 @@ Layer& Layer::feedForward(Layer& nextLayer, oglopp::Compute& compute) {
 
 	//std::cout << "last count is " << lastLayer.getNeurons().getSize() / sizeof(Neuron) << " while this is " << this->getNeurons().getSize() / sizeof(Neuron) << std::endl;
 	compute.use();
+	compute.setIVec3("neuronDims", this->neuronDimensions);
+	compute.setIVec3("weightDims", this->weightDimensions);
 	compute.setInt("nextCount", nextLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", false);
-	compute.dispatch(nextLayer.getNeurons().getSize() / sizeof(Neuron), 1);
+	compute.setInt("thisLayerType", this->getType());
+	//compute.dispatch(nextLayer.getNeurons().getSize() / sizeof(Neuron), 1);
+	compute.dispatch(nextLayer.neuronSize());
 
 	oglopp::SSBO::unbind();
 
@@ -166,14 +89,16 @@ Layer& Layer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) {
 	this->getWeights().bind(2);
 
 	compute.use();
-	compute.setBool("isLastLayer", nextLayer.isLastLayer());
+	compute.setIVec3("neuronDims", this->neuronDimensions);
+	compute.setIVec3("weightDims", this->weightDimensions);
 	compute.setInt("thisLayerType",	static_cast<int>(this->getType()));
+	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("nextLayerType", static_cast<int>(this->getType()));
 	compute.setInt("nextCount", nextLayer.getNeurons().getSize() / sizeof(Neuron));
-	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", true);
 	compute.setFloat("learningRate", 0.003);
-	compute.dispatch(this->getNeurons().getSize() / sizeof(Neuron), 1);
+	//compute.dispatch(this->getNeurons().getSize() / sizeof(Neuron), 1);
+	compute.dispatch(this->neuronSize());
 
 	oglopp::SSBO::unbind();
 
@@ -297,14 +222,14 @@ Layer::Type const& Layer::getType() const {
  * @return A constant reference to the neuron dimensions object
 */
 glm::ivec3 const& Layer::neuronSize() {
-	return this->weightDimensions;
+	return this->neuronDimensions;
 }
 
 /* @brief Get the dimensions of the weight list
  * @return A constant reference to the weight dimensions object
 */
 glm::ivec3 const& Layer::weightSize() {
-	return this->neuronDimensions;
+	return this->weightDimensions;
 }
 
 /* @brief Get the total number of elements from a vec3 dimensions object
@@ -318,7 +243,7 @@ uint64_t Layer::getTotalElements(glm::ivec3 dimensions) {
  * @param[in] count	The number of elements
  * @return			The count inserted into the x component of a vector
 */
-constexpr glm::ivec3 Layer::makeSingleDimensional(uint64_t count) {
+glm::ivec3 Layer::makeSingleDimensional(uint64_t count) {
 	return glm::ivec3(count, 1, 1);
 }
 

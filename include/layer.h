@@ -31,54 +31,6 @@ public:
 		MIN		// The minimum value found in the pooled input
 	};
 
-	// Default settings struct to be overidden
-	struct _LayerSettings {
-
-		/* @brief Pure virtual function to be overloaded
-		 * @return	Each implementation of layer settings must return a constant Type, indicating which type this settings block is for. Used for type-safe evaluation at run-time.
-	 	*/
-		virtual Type getType() const = 0;
-	};
-
-	// Get the type. Returns FULLY_CONNECTED
-	struct FCSettings : public _LayerSettings {
-		// Don't need to know nextLayerNeurons here. We are given that as the weight count in this case.
-		uint64_t weightsCount; // The number of weights connecting a single neuron in this layer to all neurons in the next layer
-
-		/* @brief 	Virtual implementation to return FULLY_CONNECTED
-		 * @return	Always returns Type::FULLY_CONNECTED
-	 	*/
-		virtual Type getType() const;
-	};
-
-	// Get the type. Returns CONVOLUTION
-	struct ConvolutionSettings : public _LayerSettings {
-		uint64_t filterCount;	// Number of filters to use. Equal to the number of channels in the next layer/activation map.
-		glm::ivec3 filterSize;	// The size of a single filter. The new size of the weights in 3 dimensional space. The size of a single filter for CNN.
-
-		/* @brief 	Virtual implementation to return CONVOLUTION
-		 * @return	Always returns Type::CONVOLUTION
-	 	*/
-		virtual Type getType() const;
-	};
-
-	// Settings for a pooling layer
-	struct PoolSettings : public _LayerSettings {
-		glm::ivec2 size;
-		PoolMethod method;
-
-		/* @brief 	Virtual implementation to return POOLING
-		 * @return	Always returns Type::POOLING
-	 	*/
-		virtual Type getType() const;
-	};
-
-	typedef union {
-		FCSettings settingsFC; // Fully Connected layer - Number of neurons in the next layer
-		ConvolutionSettings settingsConv;
-		PoolSettings settingsPool;
-	} LayerSettings;
-
 	/* @brief Default constructor. By default, the layer is a fully connected input or hidden layer. There's no mathematical difference between input and hidden, but output has no weights.
 	 * @param[in] newType	The type of the layer. Used to set up the weights. Sent to the compute shader so it can perform the proper action.
 	*/
@@ -88,37 +40,10 @@ public:
 	/* @brief Setup the layer using new neuron dimensions and weight dimensions. Also allow specifying the new layer
 	 * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
 	 * @param[in] newType		The new type of the layer. Specifies which component of LayerSettings to read
-	 * @param[in] newLayerSettings	A set of variables specific to the variable type.
+	 * @param[in] totalWeights	The total number of weights to allocate for this layer. Set to 0 if no weights are required.
 	 * @return					A status code. 0 Upon success, <0 upon failure.
 	*/
-	int8_t setup(glm::ivec3 const& newNeuronDims, Type newType, LayerSettings newLayerSettings);
-
-	/* @brief Setup a fully-connected layer
-	 * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
-	 * @param[in] newSettings	The FC settings object contianing extra information
-	 * @return					A status code
-	*/
-	int8_t setupFC(glm::ivec3 const& newNeuronDims, FCSettings newSettings);
-
-	/* @brief Setup a convolutional layer
-	 * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
-	 * @param[in] newSettings	The FC settings object contianing extra information
-	 * @return					A status code
-	*/
-	int8_t setupConv(glm::ivec3 const& newNeuronDims, ConvolutionSettings newSettings);
-
-	/* @brief Setup a pooling layer
-	 * @param[in] newNeuronDims	The new size of the input neurons in 3 dimensional space
-	 * @param[in] newSettings	The FC settings object contianing extra information
-	 * @return					A status code
-	*/
-	int8_t setupPool(glm::ivec3 const& newNeuronDims, PoolSettings newSettings);
-
-	/* @brief Setup the SSBO with some neurons
-	 * @param[in] neuronCount	The number of neurons to randomly initialize and prepare in the SSBO
-	 * @param[in] weightCount	The number of weights per neuron (the number of neurons in the last layer)
-	*/
-	Layer& setup(uint32_t const neuronCount, uint32_t const weightCount);
+	int8_t setup(glm::ivec3 const& newNeuronDims, Type newType, uint64_t totalWeights);
 
 	/* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
 	 * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
@@ -185,14 +110,14 @@ public:
 	 * @param[in] count	The number of elements
 	 * @return			The count inserted into the x component of a vector
 	*/
-	static constexpr glm::ivec3 makeSingleDimensional(uint64_t count);
+	static glm::ivec3 makeSingleDimensional(uint64_t count);
 
 	/* @brief True if this is the last layer (type is OUTPUT. False otherwise)
 	 * @return	True if .getType() returns Type::OUTPUT.
-	*/
+	*/;
 	bool isLastLayer() const;
 
-private:
+protected:
 	oglopp::SSBO neurons;
 	oglopp::SSBO weights;
 

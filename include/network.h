@@ -30,7 +30,7 @@ public:
 	 * @param[in] layerSizes	The number of neurons in each hidden layer
 	 * @param[in] outputSize	The ouput layer size
  	 */
-	Network& setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize);
+	//Network& setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize);
 	Network& setup(std::string const& filename);
 	Network& setupUI();
 

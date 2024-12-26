@@ -12,6 +12,8 @@
 #include <unistd.h>
 
 #include "defines.h"
+#include "layers/fc_layer.h"
+#include "layers/output_layer.h"
 #include "network.h"
 #include "neuron.h"
 #include "netutil.h"
@@ -58,7 +60,6 @@ float InputBuffer::drawSize = 30;
 
 int main(int argc, char** argv) {
 	srand(time(NULL));
-
 
 	// Handle options
 	int opt;
@@ -122,7 +123,16 @@ int main(int argc, char** argv) {
 	std::string modelPath;
 	if (argc < 2) {
 		modelPath = MY_PATH + MODEL_DIRECTORY;
-		network.setup(32*32, {50*50, 20*20, 16, 20*20, 50*50}, 32*32);
+		//network.setup(32*32, {50*50, 20*20, 16, 20*20, 50*50}, 32*32);
+		network.pushLayer(FCLayer(32*32, 50*50));
+		network.pushLayer(FCLayer(50*50, 20*20));
+		network.pushLayer(FCLayer(20*20, 16));
+		network.pushLayer(FCLayer(16, 20*20));
+		network.pushLayer(FCLayer(20*20, 50*50));
+		network.pushLayer(FCLayer(50*50, 32*32));
+		network.pushLayer(OutputLayer(32*32));
+		network.setupUI();
+		std::cout << "new model path is " << network.generateModelPath() << std::endl;
 	} else {
 		modelPath = "";
 		network.setup(argv[1]);
@@ -166,7 +176,6 @@ int main(int argc, char** argv) {
 			saveTrainingElement(network.getLayers().front().getNeurons(), keyDown, MY_PATH);
 
 			network.backProp(compute);
-
 			output = &network.getLayers().front();
 			Neuron* neurons = static_cast<Neuron*>(output->getNeurons().map(oglopp::SSBO::BOTH));
 

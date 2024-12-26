@@ -7,7 +7,7 @@
 #include <sstream>
 
 Network::Network(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize) {
-	this->setup(inputSize, hiddenSizes, outputSize);
+	//this->setup(inputSize, hiddenSizes, outputSize);
 }
 
 Network::Network(std::string const& filename) {
@@ -45,29 +45,29 @@ Network& Network::pushLayer(Layer const& layer) {
  * @param[in] layerSizes	The number of neurons in each hidden layer
  * @param[in] outputSize	The ouput layer size
  */
-Network& Network::setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize) {
-	// Preallocate some layers
-	this->layers.resize(2 + hiddenSizes.size());
+// Network& Network::setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize) {
+// 	// Preallocate some layers
+// 	// this->layers.resize(2 + hiddenSizes.size());
 
-	// Setup input
-	size_t lastSize = inputSize;
-	this->layers[0].setup(inputSize, 0);
+// 	// // Setup input
+// 	// size_t lastSize = inputSize;
+// 	// this->layers[0].setup(inputSize, 0);
 
-	// Setup hidden
-	for (size_t i=1;i<=hiddenSizes.size();i++) {
-		this->layers[i].setup(hiddenSizes[i-1], lastSize);
-		lastSize = hiddenSizes[i-1];
-	}
+// 	// // Setup hidden
+// 	// for (size_t i=1;i<=hiddenSizes.size();i++) {
+// 	// 	this->layers[i].setup(hiddenSizes[i-1], lastSize);
+// 	// 	lastSize = hiddenSizes[i-1];
+// 	// }
 
-	// Setup output
-	this->layers[hiddenSizes.size() + 1].setup(outputSize, lastSize);
+// 	// // Setup output
+// 	// this->layers[hiddenSizes.size() + 1].setup(outputSize, lastSize);
 
-	// Generate a model path based on the new layers
-	this->generateModelPath();
+// 	// Generate a model path based on the new layers
+// 	this->generateModelPath();
 
-	// Now setup the UI
-	return this->setupUI();
-}
+// 	// Now setup the UI
+// 	return this->setupUI();
+// }
 
 Network& Network::setup(std::string const& filename) {
 	this->networkFilename = filename;
@@ -137,7 +137,7 @@ Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t t
 		return this->layers[this->size() -1];
 	}
 
-	size_t layerStopIndex = std::min(toLayer, this->size() - 1);
+	size_t layerStopIndex = std::min(toLayer, this->size() - 2);
 	size_t layerStartIndex = std::min(fromLayer, layerStopIndex);
 
 	// We start with the first hidden layer, so start by providing the first layer as the "last" layer
@@ -145,7 +145,7 @@ Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t t
 	Layer* thisLayer = nullptr;
 
 	// Feed forward each layer one at a time
-	for (size_t i=layerStartIndex;i<layerStopIndex;i++) {
+	for (size_t i=layerStartIndex;i<=layerStopIndex;i++) {
 		// Get the current layer
 		thisLayer = &this->layers[i];
 
@@ -155,6 +155,8 @@ Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t t
 		// Feed forward the layer given the last layer
 		thisLayer->feedForward(*nextLayer, compute);
 	}
+
+	std::cout << std::endl;
 
 	// Return a reference to the output layer
 	return this->layers[this->size() - 1];
@@ -176,11 +178,11 @@ Network& Network::backProp(oglopp::Compute& compute, size_t fromLayer, size_t to
 	Layer* nextLayer = nullptr;
 	Layer* thisLayer = nullptr;
 
-	size_t layerStartIndex = std::min(fromLayer, this->size()-2);
-	size_t layerStopIndex = std::min(toLayer, layerStartIndex);
+	ssize_t layerStartIndex = std::min(fromLayer, this->size()-2);
+	ssize_t layerStopIndex = std::min(static_cast<ssize_t>(toLayer), layerStartIndex);
 
 	// Feed forward each layer one at a time
-	for (size_t i=layerStartIndex;i>=layerStopIndex;i--) {
+	for (ssize_t i=layerStartIndex;i>=layerStopIndex;i--) {
 		// Get the current layer
 		nextLayer = &this->layers[i + 1];
 		thisLayer = &this->layers[i];
@@ -327,7 +329,7 @@ Network& Network::load(std::string const& networkFile) {
 
 	// Setup input layer normally
 	this->layers.resize(hiddenLayers + 2);
-	this->layers[0].setup(inputNeuronCount, 0);
+	//this->layers[0].setup(inputNeuronCount, 0);
 
 	// Read all layers except input
 	for (size_t i=0;i<=hiddenLayers;i++) {

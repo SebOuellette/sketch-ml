@@ -1,0 +1,44 @@
+#include "layers/conv_layer.h"
+
+/* @brief Setup a convolutional layer
+ * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
+ * @param[in] newSettings	The FC settings object contianing extra information
+ * @return					A status code
+*/
+ConvLayer::ConvLayer(glm::ivec3 const& newNeuronDims, glm::ivec3 filterSize, uint64_t filterCount) {
+	// Set the weight dimensions for this layer. The dimensions of a single filter.
+	this->weightDimensions = filterSize;
+
+	// Calculate the total convolutional weights for all filters
+	uint64_t totalWeights = filterCount * Layer::getTotalElements(filterSize);
+
+	// Now continue to setup the layer
+	this->setup(newNeuronDims, Type::CONVOLUTION, totalWeights);
+}
+
+/* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
+ * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
+ * @return					A reference to this layer
+*/
+ConvLayer& ConvLayer::feedForward(Layer& nextLayer, oglopp::Compute& compute) {
+	compute.use();
+	compute.setIVec3("filterSize", this->filterSize);
+	compute.setUInt("filterCount", this->filterCount);
+
+	Layer::feedForward(nextLayer, compute);
+	return *this;
+}
+
+/* @brief Perform backpropagation on the layer, given the error/expected value from the next layer.
+ * @param[in] nextLayer	A reference to the next layer that will contain either the expected value (if it's OUTPUT), or the carried error from backpropagation (if it's a hidden layer).
+ * @param[in] compute	A reference to the compute shader used for backpropagation
+ * @return				A reference to this layer object after backpropagation is performed
+*/
+ConvLayer& ConvLayer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) {
+	compute.use();
+	compute.setIVec3("filterSize", this->filterSize);
+	compute.setUInt("filterCount", this->filterCount);
+
+	Layer::backPropagate(nextLayer, compute);
+	return *this;
+}
