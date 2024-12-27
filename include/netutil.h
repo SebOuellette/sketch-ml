@@ -13,8 +13,6 @@
 #include <fstream>
 #include <vector>
 
-#define SAMPLES_DIR	"samples/"
-
 size_t charToIndex(char key);
 int saveTrainingElement(oglopp::SSBO& buffer, uint8_t key, std::string const& parentDir);
 void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint32_t>& fileIndices, std::string const& parentDir);

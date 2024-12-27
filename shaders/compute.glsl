@@ -74,7 +74,7 @@ float calcZ(uint index) {
     double newValue = 0;
 
     for (uint i = 0; i < thisCount; i++) {
-        weightIndex = windex(index, i); // Each larger block in weights is assocated with 'this' index
+        weightIndex = windex(i, index); // Each larger block in weights is assocated with 'this' index
         newValue += weights[weightIndex] * neurons[i].value;
     }
 

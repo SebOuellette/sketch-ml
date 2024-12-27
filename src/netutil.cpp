@@ -88,7 +88,7 @@ void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint3
 	}
 
 	// Shuffle the file indices
-	std::cout << "Shuffling training data" << std::endl;
+	std::cout << "Shuffling training data..." << std::endl;
 	size_t swapIndex = 0;
 	for (size_t i=0;i<fileIndices.size();i++) {
 		swapIndex = rand() % fileIndices.size();
@@ -96,6 +96,7 @@ void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint3
 		fileIndices[i] = fileIndices[swapIndex];
 		fileIndices[swapIndex] = temp;
 	}
+	std::cout << "done! - Now training..." << std::endl;
 }
 
 void setExpectedOutput(Network& network) {
@@ -135,13 +136,13 @@ void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const
 		return;
 	}
 
-	std::cout << "countToDo is " << countToDo << " - file count is " << files.size() << " - offset is " << offset << std::endl;
+	//std::cout << "countToDo is " << countToDo << " - file count is " << files.size() << " - offset is " << offset << std::endl;
 
 	//size_t expectedIndex = 0;
 	for (size_t i=0;i<countToDo;i++) {
 		size_t fileIndex = fileIndices[(offset + i) % fileIndices.size()];
 
-		std::cout << "File size is " << files[fileIndex].size() << std::endl;
+		//std::cout << "File size is " << files[fileIndex].size() << std::endl;
 
 		// Map the input buffer
 		inputMap = static_cast<Neuron*>(inputLayer->getNeurons().map(oglopp::SSBO::BOTH));

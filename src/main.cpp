@@ -198,6 +198,7 @@ int main(int argc, char** argv) {
 				trainingOffset = 0;
 				trainingToggle = !trainingToggle;
 				if (trainingToggle) {
+					std::cout << "Training ON" << std::endl;
 					loadTrainingFiles(files, fileIndices, MY_PATH);
 				}
 			}

@@ -156,7 +156,7 @@ Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t t
 		thisLayer->feedForward(*nextLayer, compute);
 	}
 
-	std::cout << std::endl;
+	//std::cout << std::endl;
 
 	// Return a reference to the output layer
 	return this->layers[this->size() - 1];

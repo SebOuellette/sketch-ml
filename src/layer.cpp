@@ -93,7 +93,7 @@ Layer& Layer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) {
 	compute.setIVec3("weightDims", this->weightDimensions);
 	compute.setInt("thisLayerType",	static_cast<int>(this->getType()));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
-	compute.setInt("nextLayerType", static_cast<int>(this->getType()));
+	compute.setInt("nextLayerType", static_cast<int>(nextLayer.getType()));
 	compute.setInt("nextCount", nextLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", true);
 	compute.setFloat("learningRate", 0.003);
