@@ -20,10 +20,29 @@ public:
 	~Network();
 
 	/* @brief Push a new layer onto the network. Also updates the generated model filename
-	 * @param[in] layer	A constant reference to the layer object that will be copied onto the stack
+	 * @param[in] layer	A pointer to a layer. This may be a child element, and so it needs to be a pointer
 	 * @return 			A reference to this network object
 	*/
-	Network& pushLayer(Layer const& layer);
+	template <typename Layer_t>
+	int8_t pushLayer(Layer_t const& layer) {
+		Layer_t* newLayer = new Layer_t(layer);
+		if (newLayer == nullptr) {
+			return -1;
+		}
+
+		// Push the pointer to the position on the heap
+		this->layers.push_back(static_cast<Layer*>(newLayer));
+
+		// Update the model name
+		//this->generateModelPath();
+
+		return 0;
+	}
+
+	/* @brief Pop a layer (starting at the back) off of the network
+	 * @return The number of layers remaining in the list
+	*/
+	uint32_t popLayer();
 
 	/* @brief Setup the network based on a list of layers and sizes
 	 * @param[in] inputSize		The input layer size
@@ -75,7 +94,7 @@ public:
 	/* @brief Get a reference to the layers list
 	 * @return A reference tot he layers list
 	*/
-	std::vector<Layer>& getLayers();
+	std::vector<Layer*>& getLayers();
 
 	/* @brief Save the network layers to a model file. The model file is tagged using information about the model layers, as well as a timestamp
 	 * @param[in] directory	The directory to save the file into
@@ -115,7 +134,7 @@ public:
 
 private:
 	std::vector<oglopp::Rectangle*> monitors;
-	std::vector<Layer> layers;
+	std::vector<Layer*> layers;
 	bool error;
 	std::string networkFilename;
 };

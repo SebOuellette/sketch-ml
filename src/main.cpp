@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
 
 		network.feedForward(compute);
 
-		Layer* output = &network.getLayers().back();
+		Layer* output = network.getLayers().back();
 		//Neuron* neurons = static_cast<Neuron*>(output->getNeurons().map(oglopp::SSBO::BOTH));
 		for (int i=0;i<10;i++) {
 		 	//neurons[i].expected = window.keyPressed(GLFW_KEY_0 + i) ? 1.0 : 0.0;
@@ -173,10 +173,10 @@ int main(int argc, char** argv) {
 			justPressed = true;
 			setExpectedOutput(network);
 			std::cout << "pressed" << std::endl;
-			saveTrainingElement(network.getLayers().front().getNeurons(), keyDown, MY_PATH);
+			saveTrainingElement(network.getLayers().front()->getNeurons(), keyDown, MY_PATH);
 
 			network.backProp(compute);
-			output = &network.getLayers().front();
+			output = network.getLayers().front();
 			Neuron* neurons = static_cast<Neuron*>(output->getNeurons().map(oglopp::SSBO::BOTH));
 
 			for (size_t i=0;i<output->getNeurons().getSize()/sizeof(Neuron);i++) {

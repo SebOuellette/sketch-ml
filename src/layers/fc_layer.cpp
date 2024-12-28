@@ -1,5 +1,13 @@
 #include "layers/fc_layer.h"
 
+
+/* @brief The layer to copy. Just copies internal variables (Should also dereference stuff that is not needed anymore)
+ * @param[in] copyLayer	A reference to the layer to copy
+*/
+FCLayer::FCLayer(FCLayer const& copyLayer) {
+	this->Layer::operator=(copyLayer);
+}
+
 /* @brief Setup a fully-connected layer
  * @param[in] newNeuronCount	The new size of the neurons in 1 dimensional space
  * @param[in] newSettings		The FC settings object contianing extra information

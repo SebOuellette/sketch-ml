@@ -19,4 +19,16 @@ void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint3
 void setExpectedOutput(Network& network);
 void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const& parentDir, std::vector<std::vector<float>>& files, std::vector<uint32_t>& fileIndices, size_t& offset, size_t countToDo);
 
+/* @brief Read some layer of some type and return the type that was read for safe keeping
+ * @param[in] stream	A reference to the input stream to read the layer from
+ * @param[in] network	A reference to the netwrok to push layers to
+*/
+Layer::Type readLayer(std::fstream& stream, Network& network);
+
+/* @brief Write some layer of some type and return the type that was written for safe keeping
+ * @param[in] stream	A reference to the input stream to read the layer from
+ * @param[in] layer		A pointer to the layer to write
+*/
+Layer::Type writeLayer(std::fstream& stream, Layer& layer);
+
 #endif

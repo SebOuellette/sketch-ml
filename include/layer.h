@@ -6,6 +6,9 @@
 #include <vector>
 #include <cstdlib>
 #include <fstream>
+#include <cstdint>
+
+#include <iostream>
 
 class Layer {
 public:
@@ -18,15 +21,15 @@ public:
 		std::vector<float[4]> rgba; // Red + Green + Blue + Alpha
 	} Channels;
 
-	enum Type {
-		FULLY_CONNECTED,	// Fully conected layers are used in ANNs, and in stage 2 of CNNs.
+	enum Type : uint32_t {
+		FULLY_CONNECTED = 0x00,	// Fully conected layers are used in ANNs, and in stage 2 of CNNs.
 		CONVOLUTION,		// Convolutional layers are used in stage 1 of CNNs
 		POOLING,			// Pooling layers are used in stage 1 of CNNs
 		OUTPUT				// The output layer of any network. Indicates no weights are allocated.
 	};
 
-	enum PoolMethod {
-		MAX,	// The maximum value found in the pooled input
+	enum PoolMethod : uint32_t {
+		MAX = 0x00,	// The maximum value found in the pooled input
 		AVG,	// The average value of the pooled input
 		MIN		// The minimum value found in the pooled input
 	};
@@ -49,14 +52,14 @@ public:
 	 * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
 	 * @return					A reference to this layer
 	*/
-	Layer& feedForward(Layer& nextLayer, oglopp::Compute& compute);
+	virtual Layer& feedForward(Layer& nextLayer, oglopp::Compute& compute);
 
 	/* @brief Perform backpropagation on the layer, given the error/expected value from the next layer.
 	 * @param[in] nextLayer	A reference to the next layer that will contain either the expected value (if it's OUTPUT), or the carried error from backpropagation (if it's a hidden layer).
 	 * @param[in] compute	A reference to the compute shader used for backpropagation
 	 * @return				A reference to this layer object after backpropagation is performed
 	*/
-	Layer& backPropagate(Layer& nextLayer, oglopp::Compute& compute);
+	virtual  Layer& backPropagate(Layer& nextLayer, oglopp::Compute& compute);
 
 	/* @brief Get a reference to the neuron SSBO
 	 * @return A reference to the neuron SSBo
@@ -72,13 +75,15 @@ public:
 	 * @param[in] stream	The stream to write the layer to
 	 * @return				A reference to this layer object
 	*/
-	Layer& writeLayer(std::fstream& stream);
+	virtual Layer& writeLayer(std::fstream& stream);
+	virtual int8_t writeAdditional(std::fstream& stream);
 
 	/* @brief Write the layer to
 	 * @param[in] stream	The stream to write the layer to
 	 * @return				A reference to this layer object
 	*/
-	Layer& readLayer(std::fstream& stream);
+	virtual Layer& readLayer(std::fstream& stream);
+	virtual int8_t readAdditional(std::fstream& stream);
 
 	/* @brief Set the layer type
 	 * @param[in] newType	The new type of the layer to set
@@ -101,6 +106,12 @@ public:
 	*/
 	glm::ivec3 const& weightSize();
 
+	/* @brief Assig nanother layer to this layer
+	 * @param[in] copyLayer	The next layer object to copy
+	 * @return				A reference to this layer object
+	*/
+	Layer& operator=(Layer const& copyLayer);
+
 	/* @brief Get the total number of elements from a vec3 dimensions object
 	 * @return	The total number of elements in a 3 dimensional space
 	*/
@@ -117,7 +128,59 @@ public:
 	*/;
 	bool isLastLayer() const;
 
+	/* @brief Read some data from a stream into a variable (CPU Endianness /shrug)
+	 * @param[out] 	output	A reference to the output variable that the data will be read into
+	 * @param[in]	stream	A reference to the fstream to read from
+	 * @return				-1 if the stream was bad after reading, 0 otherwise
+	*/
+	template <typename T>
+	inline static int8_t readVar(std::fstream& stream, T& output) {
+		stream.read(static_cast<char*>(static_cast<void*>(&output)), sizeof(output));
+		//std::cout << "Read var '" << output << "'" << std::endl;
+
+		return (stream.bad() || stream.eof()) ? -1 : 0;
+	}
+
+	/* @brief Write some data to a stream from a variable (CPU Endianness /shrug)
+	 * @param[out] 	output	A reference to the output variable that the data will be read from
+	 * @param[in]	stream	A reference to the fstream to write to
+	 * @return				-1 if the stream was bad after reading, 0 otherwise
+	*/
+	template <typename T>
+	inline static int8_t writeVar(std::fstream& stream, T const& output) {
+		stream.write(static_cast<const char*>(static_cast<const void*>(&output)), sizeof(output));
+
+		return (stream.bad()) ? -1 : 0;
+	}
+
+	/* @brief Write the layer header to a stream
+	 * @param[in] stream	The stream to write the layer header to
+	 * @return				A reference to this layer object
+	*/
+	Layer& writeHeader(std::fstream& stream);
+
+	/* @brief Write the layer data to a stream
+	 * @param[in] stream	The stream to write the layer data to
+	 * @return				A reference to this layer object
+	*/
+	Layer& writeData(std::fstream& stream);
+
+	/* @brief Read the layer header from a stream
+	 * @param[in] stream	The stream to read from
+	 * @return				A reference to this layer object
+	*/
+	int8_t readHeader(std::fstream& stream);
+
+	/* @brief Read the layer data from a stream
+	 * @param[in] stream		The stream to read from
+	 * @param[in] biasCount		The number of neuron biases to read from the file
+	 * @param[in] weightCount	The number of weights to read from the file
+	 * @return					A reference to this layer object
+	*/
+	int8_t readData(std::fstream& stream);
+
 protected:
+
 	oglopp::SSBO neurons;
 	oglopp::SSBO weights;
 

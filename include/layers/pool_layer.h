@@ -6,6 +6,11 @@
 // Pooling Layer
 class PoolLayer : public Layer {
 public:
+	/* @brief The layer to copy. Just copies internal variables (Should also dereference stuff that is not needed anymore)
+	 * @param[in] copyLayer	A reference to the layer to copy
+	*/
+	PoolLayer(PoolLayer const& copyLayer);
+
 	/* @brief Setup a pooling layer
 	 * @param[in] newNeuronDims	The new size of the input neurons in 3 dimensional space
 	 * @param[in] newSize		The size of the pool reduction. Acts as a divisor on the size of the original input
@@ -18,14 +23,17 @@ public:
 	 * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
 	 * @return					A reference to this layer
 	*/
-	PoolLayer& feedForward(Layer& nextLayer, oglopp::Compute& compute);
+	PoolLayer& feedForward(Layer& nextLayer, oglopp::Compute& compute) override;
 
 	/* @brief Perform backpropagation on the layer, given the error/expected value from the next layer.
 	 * @param[in] nextLayer	A reference to the next layer that will contain either the expected value (if it's OUTPUT), or the carried error from backpropagation (if it's a hidden layer).
 	 * @param[in] compute	A reference to the compute shader used for backpropagation
 	 * @return				A reference to this layer object after backpropagation is performed
 	*/
-	PoolLayer& backPropagate(Layer& nextLayer, oglopp::Compute& compute);
+	PoolLayer& backPropagate(Layer& nextLayer, oglopp::Compute& compute) override;
+
+	int8_t writeAdditional(std::fstream& stream) override;
+	int8_t readAdditional(std::fstream& stream) override;
 
 private:
 	glm::ivec2 size;

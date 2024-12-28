@@ -1,4 +1,9 @@
 #include "network.h"
+#include "layers/conv_layer.h"
+#include "layers/fc_layer.h"
+#include "layers/output_layer.h"
+#include "layers/pool_layer.h"
+#include "netutil.h"
 #include "oglopp/compute.h"
 #include "oglopp/more_shapes.h"
 #include "oglopp/window.h"
@@ -18,6 +23,10 @@ Network::~Network() {
 	for(size_t i=0;i<this->monitors.size();i++) {
 		delete this->monitors[i];
 	}
+
+	while (this->layers.size() > 0) {
+		this->popLayer();
+	}
 }
 
 #define RECTS_NUM_X 2
@@ -26,18 +35,41 @@ glm::vec3 calcRectPos(uint32_t index) {
 	return glm::vec3(-0.25 * (((index - 1) % RECTS_NUM_X) * 2.1) - 0.27, 0.25 - int((index - 1) / RECTS_NUM_X) * 0.25 * 2.1, 1.0);
 }
 
-/* @brief Push a new layer onto the network. Also updates the generated model filename
- * @param[in] layer	A constant reference to the layer object that will be copied onto the stack
- * @return 			A reference to this network object
+
+
+/* @brief Pop a layer (starting at the back) off of the network
+ * @return The number of layers remaining in the list
 */
-Network& Network::pushLayer(Layer const& layer) {
-	// Push the layer
-	this->layers.push_back(layer);
+uint32_t Network::popLayer() {
+	// Get a pointer to the
+	Layer* rawLayer = this->layers.back();
+	if (rawLayer == nullptr) {
+		return this->layers.size();
+	}
 
-	// Update the model name
-	this->generateModelPath();
+	// Cast the pointer to the proper type, and delete it.
+	switch (rawLayer->getType()) {
+		case Layer::Type::CONVOLUTION:
+			delete[] static_cast<ConvLayer*>(rawLayer);
+			break;
 
-	return *this;
+		case Layer::Type::FULLY_CONNECTED:
+			delete[] static_cast<FCLayer*>(rawLayer);
+			break;
+
+		case Layer::Type::OUTPUT:
+			delete[] static_cast<OutputLayer*>(rawLayer);
+			break;
+
+		case Layer::Type::POOLING:
+			delete[] static_cast<PoolLayer*>(rawLayer);
+			break;
+	}
+
+	// Pop off the back now that we deleted the pointer
+	this->layers.pop_back();
+
+	return this->layers.size();
 }
 
 /* @brief Setup an artificial fully-connected network based on a list of layers and sizes
@@ -115,7 +147,7 @@ bool Network::getError() {
  * @return	A reference to the found layer
 */
 Layer& Network::operator[](size_t index) {
-	return this->layers[index];
+	return *this->layers[index];
 }
 
 /* @brief Get the number of layers as an unsigned integer. Includes the input and ouput layers
@@ -134,7 +166,7 @@ size_t Network::size() {
 Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t toLayer) {
 	if (this->size() < 2) {
 		std::cerr << "Failed to feed forward. The network has fewer than 2 layers." << std::endl;
-		return this->layers[this->size() -1];
+		return *this->layers[this->size() -1];
 	}
 
 	size_t layerStopIndex = std::min(toLayer, this->size() - 2);
@@ -147,10 +179,10 @@ Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t t
 	// Feed forward each layer one at a time
 	for (size_t i=layerStartIndex;i<=layerStopIndex;i++) {
 		// Get the current layer
-		thisLayer = &this->layers[i];
+		thisLayer = this->layers[i];
 
 		// Get the next layer
-		nextLayer = &this->layers[i + 1];
+		nextLayer = this->layers[i + 1];
 
 		// Feed forward the layer given the last layer
 		thisLayer->feedForward(*nextLayer, compute);
@@ -159,7 +191,7 @@ Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t t
 	//std::cout << std::endl;
 
 	// Return a reference to the output layer
-	return this->layers[this->size() - 1];
+	return *this->layers[this->size() - 1];
 }
 
 /* @brief Perform back propagation on the network
@@ -184,8 +216,8 @@ Network& Network::backProp(oglopp::Compute& compute, size_t fromLayer, size_t to
 	// Feed forward each layer one at a time
 	for (ssize_t i=layerStartIndex;i>=layerStopIndex;i--) {
 		// Get the current layer
-		nextLayer = &this->layers[i + 1];
-		thisLayer = &this->layers[i];
+		nextLayer = this->layers[i + 1];
+		thisLayer = this->layers[i];
 
 		// Feed forward the layer given the last layer
 		thisLayer->backPropagate(*nextLayer, compute);
@@ -202,10 +234,10 @@ Network& Network::draw(oglopp::Window& window, oglopp::Shader& shader) {
 	double res = 0;
 
 	for (size_t i=0;i<this->size();i++) {
-		this->layers[i].getNeurons().bind(0);
+		this->layers[i]->getNeurons().bind(0);
 
 		if (i < this->monitors.size()) {
-			res = ceil(sqrt(this->layers[i].getNeurons().getSize() / sizeof(Neuron)));
+			res = ceil(sqrt(this->layers[i]->getNeurons().getSize() / sizeof(Neuron)));
 			//std::cout << "size is " << this->layers[i].getNeurons().getSize() / sizeof(Neuron) << ", res is " << res << std::endl;
 			//if (i == this->size() - 1) {
 				//shader.setVec2("layerSize", glm::vec2(this->layers[this->layers.size()-1].getNeurons().getSize() / sizeof(Neuron), 1));
@@ -227,7 +259,7 @@ Network& Network::draw(oglopp::Window& window, oglopp::Shader& shader) {
 /* @brief Get a reference to the layers list
  * @return A reference tot he layers list
 */
-std::vector<Layer>& Network::getLayers() {
+std::vector<Layer*>& Network::getLayers() {
 	return this->layers;
 }
 
@@ -236,21 +268,15 @@ std::vector<Layer>& Network::getLayers() {
  * @return A reference to this network object
 */
 Network& Network::save(std::string const& directory) {
-	// [uint32_t : hidden layer count]
-	// [uint32_t : input neuron count]
-	// [uint32_t : hidden layer 1 neuron count]
-	// [uint64_t : input to hidden layer 1 weights count]
-	// [float[] : input to hidden layer 1 weights]
-	// [float[] : hidden layer 1 biases]
-	// [uint32_t : hidden layer N neuron count]
-	// [uint64_t : hidden layer N-1 to hidden layer N weights count]
-	// [float[] : hidden layer N-1 to hidden layer N weights]
-	// [float[] : hidden layer N biases]
-	// [uint32_t : output layer neuron count]
-	// [uint64_t : hidden layer N to output layer weights count]
-	// [float[] : hidden layer N to output layer weights]
-	// [float[] : output layer biases]
-	//
+	// new
+	// [uint32_t : total layer count]				>	Model header
+	// [uint16_t : layer n type]					\/					\/
+	// [uint32_t[3] : layer n neuron/bias count]	 |					 |	Layer header
+	// [uint32_t[3] : layer n weight count]			 | Model Data		 |
+	// [ optional layer-specific variables ]		 |					/
+	// [float[] : layer n neurons]					 |					\/
+	// [float[] : layer n biases]					 |					 |	Layer data
+	// [float[] : layer n weights]					/					/
 
 	if (directory.size() > 0) {
 		std::filesystem::create_directory(directory);
@@ -263,24 +289,18 @@ Network& Network::save(std::string const& directory) {
 	// Open the file
 	std::fstream file(fullPath, std::ios::out | std::ios::binary);
 	if (file.bad()) {
-		std::cerr << "Failed ot open file!" << std::endl;
+		std::cerr << "Failed to open file!" << std::endl;
 		return *this;
 	}
 
-	// Write hidden layer count
-	uint32_t hiddenLayers = this->layers.size() - 2; // includes hidden and output actually but...
-	//std::cout << "Hidden layers " << hiddenLayers << std::endl;
-	file.write(static_cast<char*>(static_cast<void*>(&hiddenLayers)), sizeof(hiddenLayers));
-
-	// Write input neuron count
-	uint32_t inputNeuronCount = this->layers[0].getNeurons().getSize() / sizeof(Neuron); // includes hidden and output actually but...
-	//std::cout << "Input neurons " << inputNeuronCount << std::endl;
-	file.write(static_cast<char*>(static_cast<void*>(&inputNeuronCount)), sizeof(inputNeuronCount));
+	// Write total layer count
+	uint32_t totalLayers = this->layers.size(); // includes all layers, including input and ouput
+	file.write(static_cast<char*>(static_cast<void*>(&totalLayers)), sizeof(totalLayers));
+	std::cout << "Writing [" << totalLayers << "] total layers" << std::endl;
 
 	// Write all layers except input
-	for (size_t i=1;i<this->layers.size();i++) {
-		//std::cout << "Saving layer " << i << std::endl;
-		this->layers[i].writeLayer(file);
+	for (size_t i=0;i<this->layers.size();i++) {
+		writeLayer(file, *this->layers[i]);
 	}
 
 	file.close();
@@ -292,21 +312,15 @@ Network& Network::save(std::string const& directory) {
  * @return					A reference to this network object
 */
 Network& Network::load(std::string const& networkFile) {
-	// [uint32_t : hidden layer count]
-	// [uint32_t : input neuron count]
-	// [uint32_t : hidden layer 1 neuron count]
-	// [uint64_t : input to hidden layer 1 weights count]
-	// [float[] : input to hidden layer 1 weights]
-	// [float[] : hidden layer 1 biases]
-	// [uint32_t : hidden layer N neuron count]
-	// [uint64_t : hidden layer N-1 to hidden layer N weights count]
-	// [float[] : hidden layer N-1 to hidden layer N weights]
-	// [float[] : hidden layer N biases]
-	// [uint32_t : output layer neuron count]
-	// [uint64_t : hidden layer N to output layer weights count]
-	// [float[] : hidden layer N to output layer weights]
-	// [float[] : output layer biases]
-	//
+	// new
+	// [uint32_t : total layer count]
+	// [uint16_t : layer n type]
+	// [ optional layer-specific variables ]
+	// [uint32_t : layer n neuron/bias count]
+	// [uint32_t : layer n weight count]
+	// [float[] : layer n neurons]
+	// [float[] : layer n biases]
+	// [float[] : layer n weights]
 
 	// Now get the full filepath
 	std::cout << "Loading model from " << networkFile << std::endl;
@@ -317,24 +331,14 @@ Network& Network::load(std::string const& networkFile) {
 		return *this;
 	}
 
-	// Write hidden layer count (plus output layer)
-	uint32_t hiddenLayers;
-	file.read(static_cast<char*>(static_cast<void*>(&hiddenLayers)), sizeof(hiddenLayers));
-	//std::cout << "Hidden layers " << hiddenLayers << std::endl;
+	// Read the total layer count (Including input and output)
+	uint32_t totalLayers = 0;
+	file.read(static_cast<char*>(static_cast<void*>(&totalLayers)), sizeof(totalLayers));
 
-	// Write input neuron count
-	uint32_t inputNeuronCount;
-	file.read(static_cast<char*>(static_cast<void*>(&inputNeuronCount)), sizeof(inputNeuronCount));
-	//std::cout << "Input neurons " << inputNeuronCount << std::endl;
-
-	// Setup input layer normally
-	this->layers.resize(hiddenLayers + 2);
-	//this->layers[0].setup(inputNeuronCount, 0);
-
-	// Read all layers except input
-	for (size_t i=0;i<=hiddenLayers;i++) {
-		//std::cout << "Reading " << i + 1 << std::endl;
-		this->layers[i + 1].readLayer(file);
+	// Read all layers in
+	for (size_t i=0;i<totalLayers;i++) {
+		//std::cout << "reading type: " << std::flush << readLayer(file, *this) << std::endl;
+		readLayer(file, *this);
 	}
 
 	file.close();
@@ -345,11 +349,13 @@ Network& Network::load(std::string const& networkFile) {
  * @return	A reference to the networkFilename variable after the generated filename has been set
 */
 std::string const& Network::generateModelPath() {
+	std::cout << "Generating new model path" << std::endl;
+
 	// Generate a filename
 	std::ostringstream filename;
 	filename << "skml_";
 	for (size_t i=0;i<layers.size();i++) {
-		filename << this->layers[i].getNeurons().getSize() / sizeof(Neuron) << "_";
+		filename << this->layers[i]->getNeurons().getSize() / sizeof(Neuron) << "_";
 	}
 	filename << std::to_string(time(NULL)) << "-" << std::to_string(rand()) << MODEL_EXTENSION;
 

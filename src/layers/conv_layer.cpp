@@ -1,5 +1,15 @@
 #include "layers/conv_layer.h"
 
+/* @brief The layer to copy. Just copies internal variables (Should also dereference stuff that is not needed anymore)
+ * @param[in] copyLayer	A reference to the layer to copy
+*/
+ConvLayer::ConvLayer(ConvLayer const& copyLayer) {
+	this->Layer::operator=(copyLayer);
+
+	this->filterSize = copyLayer.filterSize;
+	this->filterCount = copyLayer.filterCount;
+}
+
 /* @brief Setup a convolutional layer
  * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
  * @param[in] newSettings	The FC settings object contianing extra information
@@ -41,4 +51,26 @@ ConvLayer& ConvLayer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) 
 
 	Layer::backPropagate(nextLayer, compute);
 	return *this;
+}
+
+int8_t ConvLayer::writeAdditional(std::fstream& stream) {
+	int8_t res = 0;
+
+	res |= Layer::writeVar(stream, this->filterSize.x);
+	res |= Layer::writeVar(stream, this->filterSize.y);
+	res |= Layer::writeVar(stream, this->filterSize.z);
+
+	res |= Layer::writeVar(stream, this->filterCount);
+	return res;
+}
+
+int8_t ConvLayer::readAdditional(std::fstream& stream) {
+	int8_t res = 0;
+
+	res |= Layer::readVar(stream, this->filterSize.x);
+	res |= Layer::readVar(stream, this->filterSize.y);
+	res |= Layer::readVar(stream, this->filterSize.z);
+
+	res |= Layer::readVar(stream, this->filterCount);
+	return res;
 }

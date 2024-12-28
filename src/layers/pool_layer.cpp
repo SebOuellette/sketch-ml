@@ -1,5 +1,15 @@
 #include "layers/pool_layer.h"
 
+/* @brief The layer to copy. Just copies internal variables (Should also dereference stuff that is not needed anymore)
+ * @param[in] copyLayer	A reference to the layer to copy
+*/
+PoolLayer::PoolLayer(PoolLayer const& copyLayer) {
+	this->Layer::operator=(copyLayer);
+
+	this->size = copyLayer.size;
+	this->method = copyLayer.method;
+}
+
 /* @brief Setup a pooling layer
  * @param[in] newNeuronDims	The new size of the input neurons in 3 dimensional space
  * @param[in] newSettings	The FC settings object contianing extra information
@@ -38,4 +48,24 @@ PoolLayer& PoolLayer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) 
 
 	Layer::backPropagate(nextLayer, compute);
 	return *this;
+}
+
+int8_t PoolLayer::writeAdditional(std::fstream& stream) {
+	int8_t res = 0;
+
+	res |= Layer::writeVar(stream, this->size.x);
+	res |= Layer::writeVar(stream, this->size.y);
+
+	res |= Layer::writeVar(stream, this->method);
+	return res;
+}
+
+int8_t PoolLayer::readAdditional(std::fstream& stream) {
+	int8_t res = 0;
+
+	res |= Layer::readVar(stream, this->size.x);
+	res |= Layer::readVar(stream, this->size.y);
+
+	res |= Layer::readVar(stream, this->method);
+	return res;
 }

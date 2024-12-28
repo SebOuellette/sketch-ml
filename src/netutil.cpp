@@ -1,4 +1,10 @@
 #include "netutil.h"
+#include "layer.h"
+#include "layers/conv_layer.h"
+#include "layers/fc_layer.h"
+#include "layers/output_layer.h"
+#include "layers/pool_layer.h"
+#include <unistd.h>
 
 size_t charToIndex(char key) {
 	std::cout << "key was " << key << std::endl;
@@ -100,8 +106,8 @@ void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint3
 }
 
 void setExpectedOutput(Network& network) {
-	Layer* inputLayer = &network.getLayers().front();
-	Layer* outputLayer = &network.getLayers().back();
+	Layer* inputLayer = network.getLayers().front();
+	Layer* outputLayer = network.getLayers().back();
 	Neuron* inputMap = nullptr;
 	Neuron* outputMap = nullptr;
 
@@ -125,8 +131,8 @@ void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const
 	std::string dir = parentDir + SAMPLES_DIR;
 	std::filesystem::create_directory(dir);
 
-	Layer* inputLayer = &network.getLayers().front();
-	Layer* outputLayer = &network.getLayers().back();
+	Layer* inputLayer = network.getLayers().front();
+	Layer* outputLayer = network.getLayers().back();
 	Neuron* inputMap = nullptr;
 	Neuron* outputMap = nullptr;
 
@@ -173,4 +179,77 @@ void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const
 	}
 
 	offset = (offset + countToDo) % files.size();
+}
+
+/* @brief Read some layer of some type and return the type that was read for safe keeping
+ * @param[in] stream	A reference to the input stream to read the layer from
+ * @param[in] network	A reference to the netwrok to push layers to
+*/
+Layer::Type readLayer(std::fstream& stream, Network& network) {
+	Layer headerParse;
+	headerParse.readHeader(stream);
+
+	//std::cout << "Loaded type: " << headerParse.getType() << std::endl;;
+
+	// Parse the additional vars based on the type
+	switch (headerParse.getType()) {
+		case Layer::Type::CONVOLUTION:
+			static_cast<ConvLayer*>(&headerParse)->readAdditional(stream);
+			break;
+
+		case Layer::Type::FULLY_CONNECTED:
+			static_cast<FCLayer*>(&headerParse)->readAdditional(stream);
+			break;
+
+		case Layer::Type::OUTPUT:
+			static_cast<OutputLayer*>(&headerParse)->readAdditional(stream);
+			break;
+
+		case Layer::Type::POOLING:
+			static_cast<PoolLayer*>(&headerParse)->readAdditional(stream);
+			break;
+	}
+
+	// Now parse the data
+	headerParse.readData(stream);
+
+	// Now push the layer to the network
+	network.pushLayer(headerParse);
+
+	// Return the found layer type
+	return headerParse.getType();
+}
+
+/* @brief Write some layer of some type and return the type that was written for safe keeping
+ * @param[in] stream	A reference to the input stream to read the layer from
+ * @param[in] layer		A pointer to the layer to write
+*/
+Layer::Type writeLayer(std::fstream& stream, Layer& layer) {
+	// Write the header
+	layer.writeHeader(stream);
+
+	// Parse the additional vars based on the type
+	switch (layer.getType()) {
+		case Layer::Type::CONVOLUTION:
+			static_cast<ConvLayer*>(&layer)->writeAdditional(stream);
+			break;
+
+		case Layer::Type::FULLY_CONNECTED:
+			static_cast<FCLayer*>(&layer)->writeAdditional(stream);
+			break;
+
+		case Layer::Type::OUTPUT:
+			static_cast<OutputLayer*>(&layer)->writeAdditional(stream);
+			break;
+
+		case Layer::Type::POOLING:
+			static_cast<PoolLayer*>(&layer)->writeAdditional(stream);
+			break;
+	}
+
+	// Now parse the data
+	layer.writeData(stream);
+
+	// Return the found layer type
+	return layer.getType();
 }
