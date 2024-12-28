@@ -15,7 +15,7 @@ ConvLayer::ConvLayer(ConvLayer const& copyLayer) {
  * @param[in] newSettings	The FC settings object contianing extra information
  * @return					A status code
 */
-ConvLayer::ConvLayer(glm::ivec3 const& newNeuronDims, glm::ivec3 filterSize, uint64_t filterCount) {
+ConvLayer::ConvLayer(glm::uvec3 const& newNeuronDims, glm::uvec3 const& filterSize, uint64_t filterCount) {
 	// Set the weight dimensions for this layer. The dimensions of a single filter.
 	this->weightDimensions = filterSize;
 
@@ -32,7 +32,7 @@ ConvLayer::ConvLayer(glm::ivec3 const& newNeuronDims, glm::ivec3 filterSize, uin
 */
 ConvLayer& ConvLayer::feedForward(Layer& nextLayer, oglopp::Compute& compute) {
 	compute.use();
-	compute.setIVec3("filterSize", this->filterSize);
+	compute.setUIVec3("filterSize", this->filterSize);
 	compute.setUInt("filterCount", this->filterCount);
 
 	Layer::feedForward(nextLayer, compute);
@@ -46,7 +46,7 @@ ConvLayer& ConvLayer::feedForward(Layer& nextLayer, oglopp::Compute& compute) {
 */
 ConvLayer& ConvLayer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) {
 	compute.use();
-	compute.setIVec3("filterSize", this->filterSize);
+	compute.setUIVec3("filterSize", this->filterSize);
 	compute.setUInt("filterCount", this->filterCount);
 
 	Layer::backPropagate(nextLayer, compute);

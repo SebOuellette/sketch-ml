@@ -17,7 +17,7 @@ public:
 	 * @param[in] newFilterCount	A scalar representing the number of filters in the layer
 	 * @return						A status code
 	*/
-	ConvLayer(glm::ivec3 const& newNeuronDims, glm::ivec3 newFilterSize, uint64_t newFilterCount);
+	ConvLayer(glm::uvec3 const& newNeuronDims, glm::uvec3 const& newFilterSize, uint64_t newFilterCount);
 
 	/* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
 	 * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
@@ -36,7 +36,7 @@ public:
 	int8_t readAdditional(std::fstream& stream) override;
 
 private:
-	glm::ivec3 filterSize;
+	glm::uvec3 filterSize;
 	uint64_t filterCount;
 };
 

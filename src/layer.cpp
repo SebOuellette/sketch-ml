@@ -12,7 +12,7 @@
  * @param[in] totalWeights	The total number of weights to allocate for this layer. Set to 0 if no weights are required.
  * @return					A status code. 0 Upon success, <0 upon failure.
 */
-int8_t Layer::setup(glm::ivec3 const& newNeuronDims, Type newType, uint64_t totalWeights) {
+int8_t Layer::setup(glm::uvec3 const& newNeuronDims, Type newType, uint64_t totalWeights) {
 	if (newNeuronDims.x == 0 || newNeuronDims.y == 0 || newNeuronDims.z == 0) {
 		std::cerr << "Failed to setup network layer. Neuron dimensions contained 0 in at least one dimension." << std::endl;
 		return -1;
@@ -65,8 +65,8 @@ Layer& Layer::feedForward(Layer& nextLayer, oglopp::Compute& compute) {
 
 	//std::cout << "last count is " << lastLayer.getNeurons().getSize() / sizeof(Neuron) << " while this is " << this->getNeurons().getSize() / sizeof(Neuron) << std::endl;
 	compute.use();
-	compute.setIVec3("neuronDims", this->neuronDimensions);
-	compute.setIVec3("weightDims", this->weightDimensions);
+	compute.setUIVec3("neuronDims", this->neuronDimensions);
+	compute.setUIVec3("weightDims", this->weightDimensions);
 	compute.setInt("nextCount", nextLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", false);
@@ -90,8 +90,8 @@ Layer& Layer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) {
 	this->getWeights().bind(2);
 
 	compute.use();
-	compute.setIVec3("neuronDims", this->neuronDimensions);
-	compute.setIVec3("weightDims", this->weightDimensions);
+	compute.setUIVec3("neuronDims", this->neuronDimensions);
+	compute.setUIVec3("weightDims", this->weightDimensions);
 	compute.setInt("thisLayerType",	static_cast<int>(this->getType()));
 	compute.setInt("thisCount", this->getNeurons().getSize() / sizeof(Neuron));
 	compute.setInt("nextLayerType", static_cast<int>(nextLayer.getType()));
@@ -191,14 +191,14 @@ Layer::Type const& Layer::getType() const {
 /* @brief Get the dimensions of the neuron list
  * @return A constant reference to the neuron dimensions object
 */
-glm::ivec3 const& Layer::neuronSize() {
+glm::uvec3 const& Layer::neuronSize() {
 	return this->neuronDimensions;
 }
 
 /* @brief Get the dimensions of the weight list
  * @return A constant reference to the weight dimensions object
 */
-glm::ivec3 const& Layer::weightSize() {
+glm::uvec3 const& Layer::weightSize() {
 	return this->weightDimensions;
 }
 
@@ -219,7 +219,7 @@ Layer& Layer::operator=(Layer const& copyLayer) {
 /* @brief Get the total number of elements from a vec3 dimensions object
  * @return	The total number of elements in a 3 dimensional space
 */
-uint64_t Layer::getTotalElements(glm::ivec3 dimensions) {
+uint64_t Layer::getTotalElements(glm::uvec3 dimensions) {
 	return dimensions.x * dimensions.y * dimensions.z;
 }
 
@@ -227,8 +227,8 @@ uint64_t Layer::getTotalElements(glm::ivec3 dimensions) {
  * @param[in] count	The number of elements
  * @return			The count inserted into the x component of a vector
 */
-glm::ivec3 Layer::makeSingleDimensional(uint64_t count) {
-	return glm::ivec3(count, 1, 1);
+glm::uvec3 Layer::makeSingleDimensional(uint64_t count) {
+	return glm::uvec3(count, 1, 1);
 }
 
 /* @brief True if this is the last layer (type is OUTPUT. False otherwise)
@@ -242,34 +242,36 @@ bool Layer::isLastLayer() const {
  * @param[in] stream	The stream to write the layer header to
  * @return				A reference to this layer object
 */
-Layer& Layer::writeHeader(std::fstream& stream) {
+int8_t Layer::writeHeader(std::fstream& stream) {
 	// [uint16_t : layer n type]				\/
 	// [int[3] : layer n neuron/bias count]		 |	Layer header
 	// [int[3] : layer n weight count]			 |
 	// [ optional layer-specific variables ]	/
 
+	int8_t res = 0;
+
 	// Write the layer type
-	Layer::writeVar(stream, this->getType());
+	res |= Layer::writeVar(stream, this->getType());
 
 	// Write the size of the neurons
-	Layer::writeVar(stream, this->neuronSize().x);
-	Layer::writeVar(stream, this->neuronSize().y);
-	Layer::writeVar(stream, this->neuronSize().z);
+	res |= Layer::writeVar(stream, this->neuronSize().x);
+	res |= Layer::writeVar(stream, this->neuronSize().y);
+	res |= Layer::writeVar(stream, this->neuronSize().z);
 
 	// Write the size of the weights
-	Layer::writeVar(stream, this->weightSize().x);
-	Layer::writeVar(stream, this->weightSize().y);
-	Layer::writeVar(stream, this->weightSize().z);
+	res |= Layer::writeVar(stream, this->weightSize().x);
+	res |= Layer::writeVar(stream, this->weightSize().y);
+	res |= Layer::writeVar(stream, this->weightSize().z);
 
 	// Each implementation can now write their layer specific variables
-	return *this;
+	return res;
 }
 
 /* @brief Write the layer data to a stream
  * @param[in] stream	The stream to write the layer data to
  * @return				A reference to this layer object
 */
-Layer& Layer::writeData(std::fstream& stream) {
+int8_t Layer::writeData(std::fstream& stream) {
 	// [float[] : layer n biases]				\	Layer data
 	// [float[] : layer n weights]				/
 
@@ -289,7 +291,7 @@ Layer& Layer::writeData(std::fstream& stream) {
 	// Unmmap
 	this->weights.unmap();
 
-	return *this;
+	return 0;
 }
 
 /* @brief Read the layer header from a stream

@@ -15,9 +15,9 @@ PoolLayer::PoolLayer(PoolLayer const& copyLayer) {
  * @param[in] newSettings	The FC settings object contianing extra information
  * @return					A status code
 */
-PoolLayer::PoolLayer(glm::ivec3 const& newNeuronDims, glm::ivec2 size, PoolMethod method) {
+PoolLayer::PoolLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 size, PoolMethod method) {
 	// Set the weights to 0
-	this->weightDimensions = glm::ivec3(0);
+	this->weightDimensions = glm::uvec3(0);
 
 	// Now setup the pooling layer
 	this->setup(newNeuronDims, Type::POOLING, 0);

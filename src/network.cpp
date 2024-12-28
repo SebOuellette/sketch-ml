@@ -72,35 +72,6 @@ uint32_t Network::popLayer() {
 	return this->layers.size();
 }
 
-/* @brief Setup an artificial fully-connected network based on a list of layers and sizes
- * @param[in] inputSize		The input layer size
- * @param[in] layerSizes	The number of neurons in each hidden layer
- * @param[in] outputSize	The ouput layer size
- */
-// Network& Network::setup(size_t inputSize, std::vector<size_t> hiddenSizes, size_t outputSize) {
-// 	// Preallocate some layers
-// 	// this->layers.resize(2 + hiddenSizes.size());
-
-// 	// // Setup input
-// 	// size_t lastSize = inputSize;
-// 	// this->layers[0].setup(inputSize, 0);
-
-// 	// // Setup hidden
-// 	// for (size_t i=1;i<=hiddenSizes.size();i++) {
-// 	// 	this->layers[i].setup(hiddenSizes[i-1], lastSize);
-// 	// 	lastSize = hiddenSizes[i-1];
-// 	// }
-
-// 	// // Setup output
-// 	// this->layers[hiddenSizes.size() + 1].setup(outputSize, lastSize);
-
-// 	// Generate a model path based on the new layers
-// 	this->generateModelPath();
-
-// 	// Now setup the UI
-// 	return this->setupUI();
-// }
-
 Network& Network::setup(std::string const& filename) {
 	this->networkFilename = filename;
 

@@ -17,7 +17,7 @@ public:
 	 * @param[in] newMethod		The method of pooling. MIN, AVG, or MAX
 	 * @return					A status code
 	*/
-	PoolLayer(glm::ivec3 const& newNeuronDims, glm::ivec2 newSize, PoolMethod newMethod);
+	PoolLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 newSize, PoolMethod newMethod);
 
 	/* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
 	 * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
@@ -36,7 +36,7 @@ public:
 	int8_t readAdditional(std::fstream& stream) override;
 
 private:
-	glm::ivec2 size;
+	glm::uvec2 size;
 	PoolMethod method;
 };
 

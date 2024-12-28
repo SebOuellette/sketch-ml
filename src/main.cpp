@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "defines.h"
+#include "layers/conv_layer.h"
 #include "layers/fc_layer.h"
 #include "layers/output_layer.h"
 #include "network.h"
@@ -123,7 +124,6 @@ int main(int argc, char** argv) {
 	std::string modelPath;
 	if (argc < 2) {
 		modelPath = MY_PATH + MODEL_DIRECTORY;
-		//network.setup(32*32, {50*50, 20*20, 16, 20*20, 50*50}, 32*32);
 		network.pushLayer(FCLayer(32*32, 50*50));
 		network.pushLayer(FCLayer(50*50, 20*20));
 		network.pushLayer(FCLayer(20*20, 16));
@@ -131,6 +131,8 @@ int main(int argc, char** argv) {
 		network.pushLayer(FCLayer(20*20, 50*50));
 		network.pushLayer(FCLayer(50*50, 32*32));
 		network.pushLayer(OutputLayer(32*32));
+
+		//network.pushLayer(ConvLayer(glm::uvec3()));
 		network.setupUI();
 		std::cout << "new model path is " << network.generateModelPath() << std::endl;
 	} else {

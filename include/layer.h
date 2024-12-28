@@ -46,7 +46,7 @@ public:
 	 * @param[in] totalWeights	The total number of weights to allocate for this layer. Set to 0 if no weights are required.
 	 * @return					A status code. 0 Upon success, <0 upon failure.
 	*/
-	int8_t setup(glm::ivec3 const& newNeuronDims, Type newType, uint64_t totalWeights);
+	int8_t setup(glm::uvec3 const& newNeuronDims, Type newType, uint64_t totalWeights);
 
 	/* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
 	 * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
@@ -99,12 +99,12 @@ public:
 	/* @brief Get the dimensions of the neuron list
 	 * @return A constant reference to the neuron dimensions object
 	*/
-	glm::ivec3 const& neuronSize();
+	glm::uvec3 const& neuronSize();
 
 	/* @brief Get the dimensions of the weight list
 	 * @return A constant reference to the weight dimensions object
 	*/
-	glm::ivec3 const& weightSize();
+	glm::uvec3 const& weightSize();
 
 	/* @brief Assig nanother layer to this layer
 	 * @param[in] copyLayer	The next layer object to copy
@@ -115,13 +115,13 @@ public:
 	/* @brief Get the total number of elements from a vec3 dimensions object
 	 * @return	The total number of elements in a 3 dimensional space
 	*/
-	static uint64_t getTotalElements(glm::ivec3 dimensions);
+	static uint64_t getTotalElements(glm::uvec3 dimensions);
 
 	/* @brief Turn a single count into a 3 dimensional list with only a single dimension occupied
 	 * @param[in] count	The number of elements
 	 * @return			The count inserted into the x component of a vector
 	*/
-	static glm::ivec3 makeSingleDimensional(uint64_t count);
+	static glm::uvec3 makeSingleDimensional(uint64_t count);
 
 	/* @brief True if this is the last layer (type is OUTPUT. False otherwise)
 	 * @return	True if .getType() returns Type::OUTPUT.
@@ -157,13 +157,13 @@ public:
 	 * @param[in] stream	The stream to write the layer header to
 	 * @return				A reference to this layer object
 	*/
-	Layer& writeHeader(std::fstream& stream);
+	int8_t writeHeader(std::fstream& stream);
 
 	/* @brief Write the layer data to a stream
 	 * @param[in] stream	The stream to write the layer data to
 	 * @return				A reference to this layer object
 	*/
-	Layer& writeData(std::fstream& stream);
+	int8_t writeData(std::fstream& stream);
 
 	/* @brief Read the layer header from a stream
 	 * @param[in] stream	The stream to read from
@@ -185,8 +185,8 @@ protected:
 	oglopp::SSBO weights;
 
 	Type type;
-	glm::ivec3 neuronDimensions;
-	glm::ivec3 weightDimensions;
+	glm::uvec3 neuronDimensions;
+	glm::uvec3 weightDimensions;
 };
 
 #endif
