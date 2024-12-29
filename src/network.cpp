@@ -234,6 +234,7 @@ Network& Network::draw(oglopp::Window& window, oglopp::Shader& shader) {
 				}
 			}
 
+			shader.setUInt("layerType", theType);
 			shader.setVec2("layerSize", layerSize);
 			shader.setVec3("screenPos", this->monitors[i]->getPosition());
 			shader.setVec3("screenSize", this->monitors[i]->getScale());

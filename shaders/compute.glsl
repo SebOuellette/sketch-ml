@@ -260,22 +260,32 @@ void ConvolutionBackpropagate(uvec3 index) {}
 uniform ivec2 poolSize;
 uniform int poolMethod;
 
+// @brief Get the 3d size of the next layer, the compressed pooled result
+// @return	The size of the next layer
 ivec3 getPoolNextSize() {
     return ivec3(neuronDims.x / poolSize.x, neuronDims.y / poolSize.y, neuronDims.z);
 }
 
+// @brief Get the index within the next layer. Safe, assumes that the next layer is an FC layer and the provided index is flat. This is poorly designed. Will need a redesign at somepoint
+// @param[in] index	The index of the work group, index of next layer
 uint getPoolNextIndex(uvec3 index) {
     uint flatIndex = getLayerIndex(ivec4(index, 0), getPoolNextSize());
 
     return flatIndex;
 }
 
+// @brief Get the index of some position within this layer
+// @param[in] index	The position witin the last layer
+// @return			The index within the last layer
 uint getPoolLastIndex(uvec3 index) {
     uint flatIndex = getLayerIndex(ivec4(index, 0), ivec3(neuronDims));
 
     return flatIndex;
 }
 
+// @brief Convert a single dimensional index to a 3 dimensional pool position
+// @param[in] index	The index within the pooling layer
+// @return			The position within the pooling layer
 uvec3 indexToPosition(uint index) {
     uvec3 safeIndex;
     uvec2 newSize = uvec2(neuronDims.x / poolSize.x, neuronDims.y / poolSize.y);
@@ -287,8 +297,10 @@ uvec3 indexToPosition(uint index) {
     return safeIndex;
 }
 
+// @brief Propagate a pooling layer. Compress based on the provided method and size
+// @param[in] index	The index within the output layer. The neuron result to calculate.
 void PoolingPropagate(uvec3 index) {
-    ivec3 nextNeuronSize = getPoolNextSize();
+    //ivec3 nextNeuronSize = getPoolNextSize();
     uint nextNeuronIndex = getPoolNextIndex(index);
 
     uvec3 safeIndex = indexToPosition(nextNeuronIndex);
@@ -334,7 +346,33 @@ void PoolingPropagate(uvec3 index) {
     otherNeurons[nextNeuronIndex].value = resultNeuron;
 }
 
-void PoolingBackpropagate(uvec3 index) {}
+// @brief Perform backpropagation on a pooling layer
+// @param[in] index	The index within the first layer, to calculate the backpropagation difference for.
+void PoolingBackpropagate(uvec3 index) {
+    // If the method is MAX, then we only backpropagate (carry the existing error) for the max neuron. All other neurons are ignored (carried error will be 0)
+    // If the method is AVG, then we backpropagate for all neurons. Each neuron is error * deriv of average (1/pool count)
+    // If the method is MIN, it's similar to MAX. We only backpropagate for the min neuron. All other neurons are ignored.
+
+    ivec3 nextLayerSize = ivec3(neuronDims.x / poolSize.x, neuronDims.y / poolSize.y, neuronDims.z);
+    ivec3 nextLayerPos = ivec3(index.x / poolSize.x, index.y / poolSize.y, index.z);
+
+    uint thisNeuronIndex = getLayerIndex(ivec4(index, 0), ivec3(neuronDims));
+    uint nextNeuronIndex = getLayerIndex(ivec4(nextLayerPos, 0), nextLayerSize);
+
+    float chosenNeuronValue = otherNeurons[nextNeuronIndex].value;
+    float myNeuronValue = neurons[thisNeuronIndex].value;
+
+    // Find the MIN, MAX, or AVG (specified by poolMethod)
+    float cost = 0.0;
+    if (poolMethod == POOLMETHOD_AVG) {
+        cost = (1 / (poolSize.x * poolSize.y));
+    } else if (chosenNeuronValue == myNeuronValue)
+    {
+        cost = 1.0;
+    }
+
+    neurons[thisNeuronIndex].expected = cost * otherNeurons[nextNeuronIndex].expected;
+}
 
 // ==== A C T I O N   C O M P I L A T I O N =====
 // @brief Perform fully connected propagation or backpropagation

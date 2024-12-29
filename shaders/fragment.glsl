@@ -5,6 +5,7 @@ in vec4 vertCol;
 
 out vec4 FragColor;
 
+uniform uint layerType;
 uniform vec2 resolution;
 uniform vec2 layerSize;
 uniform vec2 cursor;
@@ -17,6 +18,14 @@ uniform float drawSize;
 uniform vec3 screenPos;
 uniform vec3 screenSize;
 
+const uint TYPE_FULLY_CONNECTED = 0; // Fully conected layers are used in ANNs, and in stage 2 of CNNs.
+const uint TYPE_CONVOLUTION = 1; // Convolutional layers are used in stage 1 of CNNs
+const uint TYPE_POOLING = 2; // Pooling layers are used in stage 1 of CNNs
+const uint TYPE_OUTPUT = 3; // The output layer of any network. Indicates no weights are allocated.
+const uint POOLMETHOD_MAX = 0; // The maximum value found in the pooled input
+const uint POOLMETHOD_AVG = 1; // The average value of the pooled input
+const uint POOLMETHOD_MIN = 2; // The minimum value found in the pooled input
+
 struct Neuron {
     float bias;
     float value;
@@ -28,13 +37,13 @@ layout(std430, binding = 0) buffer SSBO {
 };
 
 void main() {
-    //vec2 uv = vec2(max(-resolution.x / 2.0, gl_FragCoord.x), max(-resolution.y / 2.0, gl_FragCoord.y)) / min(resolution.x, resolution.y) - FragPos.xy;
     vec2 uv = (FragPos.xy - screenPos.xy + (screenSize.xy / 2)) / screenSize.xy;
     int index = int(mod((floor(uv.y * layerSize.x) + uv.x) * layerSize.x, layerSize.x * layerSize.y));
 
     float cursorDist = distance(gl_FragCoord.xy, vec2(cursor.x, resolution.y - cursor.y));
     bool mouseRange = cursorDist < drawSize;
 
+    // This is the edge of the draw radius. Display a red outline.
     if (int(cursorDist) == int(drawSize)) {
         FragColor = vec4(1.0, 0.0, 0.0, 1.0);
         return;
@@ -73,8 +82,9 @@ void main() {
     }
 
     // Draw
-    float cost = neurons[index].expected - neurons[index].value;
-    //FragColor = vec4(vec3(neurons[index].bias, 0, neurons[index].expected), 1.0);
-    //FragColor = vec4(vec3(abs(cost), 0, 0), 1.0);
+    //if (layerType == TYPE_POOLING) {
+    //  FragColor = vec4(vec3());
+    //} else {
     FragColor = vec4(vec3(neurons[index].value) + vec3(-neurons[index].expected, 0.0, neurons[index].expected) * 0.3, 1.0);
+    //}
 }
