@@ -13,11 +13,11 @@ public:
 
 	/* @brief Setup a convolutional layer
 	 * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
-	 * @param[in] newFilterSize		The 3 dimensional size of a single filter
+	 * @param[in] newFilterSize		The 2 dimensional size of a single filter. The z dimension is automatically set equal to the neuron dimensions' z value
 	 * @param[in] newFilterCount	A scalar representing the number of filters in the layer
 	 * @return						A status code
 	*/
-	ConvLayer(glm::uvec3 const& newNeuronDims, glm::uvec3 const& newFilterSize, uint64_t newFilterCount);
+	ConvLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 const& newFilterSize, uint64_t newFilterCount);
 
 	/* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
 	 * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer

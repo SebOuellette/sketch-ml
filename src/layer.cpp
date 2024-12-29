@@ -42,6 +42,11 @@ int8_t Layer::setup(glm::uvec3 const& newNeuronDims, Type newType, uint64_t tota
 	// Only allocate weights if we decided that this layer should have weights.
 	if (totalWeights != 0) {
 		float* pWeights = new float[totalWeights];// [weights for neuron 1][weights for neuron 2][weights for neuron 3][[weight 1][weight 2][weight 3] weights for neuron 4]
+		if (pWeights == nullptr) {
+			std::cerr << "Failed to allocate weights of size " << totalWeights << std::endl;
+			return -1;
+		}
+		std::cout << "Generating weights of size " << totalWeights << std::endl;
 
 		for (uint32_t i=0;i<totalWeights;i++) {
 			pWeights[i] = (static_cast<float>(static_cast<double>(rand()) / RAND_MAX) - 0.5) * 2.0;

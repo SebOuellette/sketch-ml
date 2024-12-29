@@ -35,6 +35,9 @@ public:
 	int8_t writeAdditional(std::fstream& stream) override;
 	int8_t readAdditional(std::fstream& stream) override;
 
+	glm::uvec2 const& getPoolSize();
+	PoolMethod const& getPoolMethod();
+
 private:
 	glm::uvec2 size;
 	PoolMethod method;

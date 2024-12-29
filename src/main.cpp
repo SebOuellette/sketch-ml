@@ -15,6 +15,7 @@
 #include "layers/conv_layer.h"
 #include "layers/fc_layer.h"
 #include "layers/output_layer.h"
+#include "layers/pool_layer.h"
 #include "network.h"
 #include "neuron.h"
 #include "netutil.h"
@@ -124,15 +125,33 @@ int main(int argc, char** argv) {
 	std::string modelPath;
 	if (argc < 2) {
 		modelPath = MY_PATH + MODEL_DIRECTORY;
-		network.pushLayer(FCLayer(32*32, 50*50));
-		network.pushLayer(FCLayer(50*50, 20*20));
-		network.pushLayer(FCLayer(20*20, 16));
+		// network.pushLayer(FCLayer(32*32, 50*50));
+		// network.pushLayer(FCLayer(50*50, 20*20));
+		// network.pushLayer(FCLayer(20*20, 16));
+		// network.pushLayer(FCLayer(16, 20*20));
+		// network.pushLayer(FCLayer(20*20, 50*50));
+		// network.pushLayer(FCLayer(50*50, 32*32));
+		// network.pushLayer(OutputLayer(32*32));
+
+		// network.pushLayer(ConvLayer(glm::uvec3(32, 32, 1), glm::uvec2(5, 5), 10));
+		// network.pushLayer(PoolLayer(glm::uvec3(32, 32, 10), glm::uvec2(2, 2), Layer::PoolMethod::MAX));
+		// network.pushLayer(ConvLayer(glm::uvec3(16, 16, 10), glm::uvec2(5, 5), 10));
+		// network.pushLayer(PoolLayer(glm::uvec3(16, 16, 10), glm::uvec2(2, 2), Layer::PoolMethod::MAX));
+		// network.pushLayer(ConvLayer(glm::uvec3(8, 8, 10), glm::uvec2(3, 3), 10));
+		// network.pushLayer(PoolLayer(glm::uvec3(8, 8, 10), glm::uvec2(2, 2), Layer::PoolMethod::MAX));
+		// network.pushLayer(FCLayer(4 * 4 * 10, 16));
+		// network.pushLayer(FCLayer(16, 20*20));
+		// network.pushLayer(FCLayer(20*20, 32*32));
+		// network.pushLayer(OutputLayer(32*32));
+
+		network.pushLayer(ConvLayer(glm::uvec3(32, 32, 1), glm::uvec2(5, 5), 1));
+		network.pushLayer(PoolLayer(glm::uvec3(32, 32, 1), glm::uvec2(2, 2), Layer::PoolMethod::AVG));
+		network.pushLayer(FCLayer(16 * 16 * 1, 16));
+		network.pushLayer(FCLayer(16 * 16 * 1, 16));
 		network.pushLayer(FCLayer(16, 20*20));
-		network.pushLayer(FCLayer(20*20, 50*50));
-		network.pushLayer(FCLayer(50*50, 32*32));
+		network.pushLayer(FCLayer(20*20, 32*32));
 		network.pushLayer(OutputLayer(32*32));
 
-		//network.pushLayer(ConvLayer(glm::uvec3()));
 		network.setupUI();
 		std::cout << "new model path is " << network.generateModelPath() << std::endl;
 	} else {

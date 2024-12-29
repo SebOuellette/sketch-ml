@@ -1,4 +1,5 @@
 #include "network.h"
+#include "layer.h"
 #include "layers/conv_layer.h"
 #include "layers/fc_layer.h"
 #include "layers/output_layer.h"
@@ -29,7 +30,7 @@ Network::~Network() {
 	}
 }
 
-#define RECTS_NUM_X 2
+#define RECTS_NUM_X 3
 
 glm::vec3 calcRectPos(uint32_t index) {
 	return glm::vec3(-0.25 * (((index - 1) % RECTS_NUM_X) * 2.1) - 0.27, 0.25 - int((index - 1) / RECTS_NUM_X) * 0.25 * 2.1, 1.0);
@@ -155,7 +156,6 @@ Layer& Network::feedForward(oglopp::Compute& compute, size_t fromLayer, size_t t
 		// Get the next layer
 		nextLayer = this->layers[i + 1];
 
-		// Feed forward the layer given the last layer
 		thisLayer->feedForward(*nextLayer, compute);
 	}
 
@@ -202,21 +202,39 @@ Network& Network::backProp(oglopp::Compute& compute, size_t fromLayer, size_t to
 */
 Network& Network::draw(oglopp::Window& window, oglopp::Shader& shader) {
 	// Bind all the layers
-	double res = 0;
+	glm::uvec2 layerSize;
+	Layer::Type theType = Layer::CONVOLUTION; // Default input type
+
 
 	for (size_t i=0;i<this->size();i++) {
 		this->layers[i]->getNeurons().bind(0);
 
 		if (i < this->monitors.size()) {
-			res = ceil(sqrt(this->layers[i]->getNeurons().getSize() / sizeof(Neuron)));
-			//std::cout << "size is " << this->layers[i].getNeurons().getSize() / sizeof(Neuron) << ", res is " << res << std::endl;
-			//if (i == this->size() - 1) {
-				//shader.setVec2("layerSize", glm::vec2(this->layers[this->layers.size()-1].getNeurons().getSize() / sizeof(Neuron), 1));
-			//} else {
-				//shader.setVec2("layerSize", glm::vec2(res, res));
-			//}
+			if (i > 0) {
+				theType = this->layers[i - 1]->getType();
+			}
 
-			shader.setVec2("layerSize", glm::vec2(res, res));
+			switch (theType) {
+				case Layer::Type::POOLING: {
+					PoolLayer* pLayer = static_cast<PoolLayer*>(this->layers[i-1]);
+					layerSize = glm::uvec2(pLayer->neuronSize().x / pLayer->getPoolSize().x, pLayer->neuronSize().y / pLayer->getPoolSize().y);
+					break;
+				}
+
+				case Layer::Type::CONVOLUTION:
+					layerSize = glm::uvec2(this->layers[i]->neuronSize().x, this->layers[i]->neuronSize().y);
+					break;
+
+				case Layer::Type::FULLY_CONNECTED:
+				case Layer::Type::OUTPUT: {
+					double res = ceil(sqrt(this->layers[i]->getNeurons().getSize() / sizeof(Neuron)));
+
+					layerSize = glm::uvec2(res, res);
+					break;
+				}
+			}
+
+			shader.setVec2("layerSize", layerSize);
 			shader.setVec3("screenPos", this->monitors[i]->getPosition());
 			shader.setVec3("screenSize", this->monitors[i]->getScale());
 			this->monitors[i]->draw(window, &shader);

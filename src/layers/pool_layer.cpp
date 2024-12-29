@@ -12,10 +12,14 @@ PoolLayer::PoolLayer(PoolLayer const& copyLayer) {
 
 /* @brief Setup a pooling layer
  * @param[in] newNeuronDims	The new size of the input neurons in 3 dimensional space
- * @param[in] newSettings	The FC settings object contianing extra information
+ * @param[in] newSize		The size of the pool reduction. Acts as a divisor on the size of the original input
+ * @param[in] newMethod		The method of pooling. MIN, AVG, or MAX
  * @return					A status code
 */
-PoolLayer::PoolLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 size, PoolMethod method) {
+PoolLayer::PoolLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 newSize, PoolMethod newMethod) {
+	this->size = newSize;
+	this->method = newMethod;
+
 	// Set the weights to 0
 	this->weightDimensions = glm::uvec3(0);
 
@@ -68,4 +72,12 @@ int8_t PoolLayer::readAdditional(std::fstream& stream) {
 
 	res |= Layer::readVar(stream, this->method);
 	return res;
+}
+
+glm::uvec2 const& PoolLayer::getPoolSize() {
+	return this->size;
+}
+
+PoolLayer::PoolMethod const& PoolLayer::getPoolMethod() {
+	return this->method;
 }

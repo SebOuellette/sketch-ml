@@ -12,15 +12,20 @@ ConvLayer::ConvLayer(ConvLayer const& copyLayer) {
 
 /* @brief Setup a convolutional layer
  * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
- * @param[in] newSettings	The FC settings object contianing extra information
- * @return					A status code
+ * @param[in] newFilterSize		The 2 dimensional size of a single filter. The z dimension is automatically set equal to the neuron dimensions' z value
+ * @param[in] newFilterCount	A scalar representing the number of filters in the layer
+ * @return						A status code
 */
-ConvLayer::ConvLayer(glm::uvec3 const& newNeuronDims, glm::uvec3 const& filterSize, uint64_t filterCount) {
+ConvLayer::ConvLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 const& newFilterSize, uint64_t newFilterCount) {
+	this->filterSize = glm::uvec3(newFilterSize, newNeuronDims.z);
+	this->filterCount = newFilterCount;
+
 	// Set the weight dimensions for this layer. The dimensions of a single filter.
-	this->weightDimensions = filterSize;
+	this->weightDimensions = this->filterSize;
+	this->weightDimensions.z *= newFilterCount; // uhhh
 
 	// Calculate the total convolutional weights for all filters
-	uint64_t totalWeights = filterCount * Layer::getTotalElements(filterSize);
+	uint64_t totalWeights = filterCount * Layer::getTotalElements(this->weightDimensions);
 
 	// Now continue to setup the layer
 	this->setup(newNeuronDims, Type::CONVOLUTION, totalWeights);

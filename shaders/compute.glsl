@@ -188,7 +188,7 @@ uint getLayerIndex(ivec4 itemPos, ivec3 scale) {
 // @param[in] filterPos		The position of the weight within the filter to offset for
 // @return					The position of the neuron to multiply by the weight in the filter
 ivec3 translateFilterToNeuron(uvec2 neuronIndex, ivec3 filterPos) {
-    ivec3 outputPos = ivec3(neuronIndex);
+    ivec3 outputPos = ivec3(neuronIndex, filterPos.z);
 
     // Offset the output Pos to have the filter position centered.
     outputPos.xy += filterPos.xy - filterPos.xy / 2;
@@ -206,7 +206,8 @@ void ConvolutionPropagate(uvec3 index) {
     float finalZSum = 0;
 
     // 'index' represents the index within the output layer, which is also the index within the input layer
-    uint nextNeuronIndex = getLayerIndex(ivec4(index, 0), nextCount);
+    const ivec3 NEXT_LAYER_DIMS = ivec3(neuronDims.xy, filterCount);
+    uint nextNeuronIndex = getLayerIndex(ivec4(index, 0), NEXT_LAYER_DIMS);
 
     // temp vars
     ivec3 filterPos;
@@ -219,18 +220,22 @@ void ConvolutionPropagate(uvec3 index) {
     /// Multiply filter index by the corresponding input neuron, add result to finalZSum
     for (uint filterZ = 0; filterZ < filterSize.z; filterZ++) {
         for (uint filterY = 0; filterY < filterSize.y; filterY++) {
-            for (uint filterX = 0; filterX < filtsrSize.x; filterX++) {
+            for (uint filterX = 0; filterX < filterSize.x; filterX++) {
                 // GLSL automatically pads with 0 if it's out of range.. but even if the texture looped.. that's another acceptable way of doing this.
                 filterPos = ivec3(filterX, filterY, filterZ);
 
                 // Fetch the position of the neuron to multiply by the filter value
-                newPos = translateFilterToNeuron(index, filterPos);
+                newPos = translateFilterToNeuron(index.xy, filterPos);
+                if (newPos.x < 0 || newPos.x >= neuronDims.x || newPos.y < 0 || newPos.y >= neuronDims.y || newPos.z < 0 || newPos.z >= neuronDims.z) {
+                    //finalZSum += 0;
+                    continue;
+                }
 
-                neuronIndex = getLayerIndex(ivec4(newPos, 0), nextCount); // Even though we're finding an index on thisLayer... we use nextLayer's size. They *should* match under all cases.. but if they don't, it's just safer to use nextCount in my brain
-                filterIndex = getLayerIndex(ivec4(filterPos, filterCount), filterSize);
+                neuronIndex = getLayerIndex(ivec4(newPos, 0), ivec3(neuronDims)); // Even though we're finding an index on thisLayer... we use nextLayer's size. They *should* match under all cases.. but if they don't, it's just safer to use nextCount in my brain
+                filterIndex = getLayerIndex(ivec4(filterPos, index.z), ivec3(filterSize));
 
                 // Now that we have the indices, we can multiply the values at those indices in the respective arrays
-                finalZSum += weights[filterIndex] * neurons[neuronIndex];
+                finalZSum += neurons[neuronIndex].value * weights[filterIndex];
             }
         }
     }
@@ -239,7 +244,12 @@ void ConvolutionPropagate(uvec3 index) {
     finalZSum += otherNeurons[nextNeuronIndex].bias;
 
     // pass finalZSum through activation (RELU)
-    otherNeurons[nextNeuronIndex].value =
+    otherNeurons[nextNeuronIndex].value = lrelu(finalZSum);
+
+    // T H E   D E B U G   Z O N E
+    //otherNeurons[nextNeuronIndex].value = float(nextNeuronIndex) / (neuronDims.x * neuronDims.y * neuronDims.z);
+    //otherNeurons[index.x + index.y * NEXT_LAYER_DIMS.x + index.z * NEXT_LAYER_DIMS.x * NEXT_LAYER_DIMS.y].value = float(index.x + index.y) / (2 * NEXT_LAYER_DIMS.x);
+    //otherNeurons[nextNeuronIndex].value = lrelu(finalZSum); // (float(index.x) / NEXT_LAYER_DIMS.x);
 }
 
 // @brief Backpropagation
@@ -249,6 +259,82 @@ void ConvolutionBackpropagate(uvec3 index) {}
 // ==== P O O L I N G ====
 uniform ivec2 poolSize;
 uniform int poolMethod;
+
+ivec3 getPoolNextSize() {
+    return ivec3(neuronDims.x / poolSize.x, neuronDims.y / poolSize.y, neuronDims.z);
+}
+
+uint getPoolNextIndex(uvec3 index) {
+    uint flatIndex = getLayerIndex(ivec4(index, 0), getPoolNextSize());
+
+    return flatIndex;
+}
+
+uint getPoolLastIndex(uvec3 index) {
+    uint flatIndex = getLayerIndex(ivec4(index, 0), ivec3(neuronDims));
+
+    return flatIndex;
+}
+
+uvec3 indexToPosition(uint index) {
+    uvec3 safeIndex;
+    uvec2 newSize = uvec2(neuronDims.x / poolSize.x, neuronDims.y / poolSize.y);
+
+    safeIndex.x = index % newSize.x;
+    safeIndex.y = (index / newSize.x) % newSize.y;
+    safeIndex.z = index / (newSize.x * newSize.y);
+
+    return safeIndex;
+}
+
+void PoolingPropagate(uvec3 index) {
+    ivec3 nextNeuronSize = getPoolNextSize();
+    uint nextNeuronIndex = getPoolNextIndex(index);
+
+    uvec3 safeIndex = indexToPosition(nextNeuronIndex);
+    uvec3 lastNeuronPos = uvec3(safeIndex.x * 2.0, safeIndex.y * 2.0, safeIndex.z);
+    //uint lastNeuronIndex = getPoolLastIndex(lastNeuronPos);
+
+    float resultNeuron = 0.0;
+
+    // Loop through the input neurons within the pool
+    for (uint poolY = 0; poolY < poolSize.y; poolY++) {
+        for (uint poolX = 0; poolX < poolSize.x; poolX++) {
+            uint thisNeuronIndex = getPoolLastIndex(lastNeuronPos + uvec3(poolX, poolY, 0));
+            float thisNeuron = neurons[thisNeuronIndex].value;
+
+            if (0 == poolY + poolX) {
+                resultNeuron = thisNeuron;
+            } else {
+                // Do pooling search based on action
+                if (poolMethod == POOLMETHOD_MAX) {
+                    if (thisNeuron > resultNeuron) {
+                        resultNeuron = thisNeuron;
+                    }
+                } else if (poolMethod == POOLMETHOD_AVG) {
+                    resultNeuron += thisNeuron;
+                } else if (poolMethod == POOLMETHOD_MIN) {
+                    if (thisNeuron < resultNeuron) {
+                        resultNeuron = thisNeuron;
+                    }
+                }
+            }
+        }
+    }
+
+    // Find the MIN, MAX, or AVG (specified by poolMethod)
+    if (poolMethod == POOLMETHOD_AVG) {
+        resultNeuron /= poolSize.x * poolSize.y;
+    }
+
+    // Set the output value to the MIN, MAX, or AVG
+    //otherNeurons[nextNeuronIndex].value = float(nextNeuronIndex) / (nextNeuronSize.x * nextNeuronSize.y * nextNeuronSize.z);
+    //otherNeurons[nextNeuronIndex].value = float(lastNeuronIndex) / (neuronDims.x * neuronDims.y * neuronDims.z);
+    //otherNeurons[nextNeuronIndex].value = neurons[lastNeuronIndex].value;
+    otherNeurons[nextNeuronIndex].value = resultNeuron;
+}
+
+void PoolingBackpropagate(uvec3 index) {}
 
 // ==== A C T I O N   C O M P I L A T I O N =====
 // @brief Perform fully connected propagation or backpropagation
@@ -277,7 +363,13 @@ void doConvolution() {
 
 // @brief Perform pooling
 void doPooling() {
-    if (backProp) {} else {}
+    uvec3 index = gl_WorkGroupID;
+
+    if (backProp) {
+        PoolingBackpropagate(index);
+    } else {
+        PoolingPropagate(index);
+    }
 }
 
 // @brief Perform network actions.
