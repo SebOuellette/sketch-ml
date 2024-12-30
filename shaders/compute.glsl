@@ -241,7 +241,7 @@ void ConvolutionPropagate(uvec3 index) {
     }
 
     // Add bias to finalZSum
-    //finalZSum += otherNeurons[nextNeuronIndex].bias;
+    finalZSum += otherNeurons[nextNeuronIndex].bias;
 
     // pass finalZSum through activation (RELU)
     otherNeurons[nextNeuronIndex].value = lrelu(finalZSum);
@@ -294,7 +294,16 @@ void ConvolutionBackpropagate(uvec3 index) {
                 finalValueCost += weights[filterIndex] * lrelu_(otherNeurons[loopNextIndex].value) * otherNeurons[loopNextIndex].expected;
             }
         }
+
+        // Channel 0 of the input. We will adjust all the biases for the output layer
+        if (index.z == 0) {
+            uint biasIndex = getLayerIndex(ivec4(index.x, index.y, filterN, 0), NEXT_LAYER_DIMS);
+
+            otherNeurons[biasIndex].bias -= learningRate * lrelu_(otherNeurons[biasIndex].value) * otherNeurons[biasIndex].expected;
+        }
     }
+
+    neurons[neuronIndex].expected = finalValueCost;
 
     // Do weight adjustments if our index is smaller than the size of a filter.
     // -> This makes index equal to the index within the filter, since filters are always smaller than the input layer
@@ -307,8 +316,7 @@ void ConvolutionBackpropagate(uvec3 index) {
             // For every x and y position within the filter, do convolution
             for (uint inY = 0; inY < neuronDims.y; inY++) {
                 for (uint inX = 0; inX < neuronDims.x; inX++) {
-                    // The origin position of the next filter. Our actual index tells us which filter to use, and which local filter index.
-                    // So we loop through every neuron in the input, pretend we're centering a filter over that neuron, then finding the neuron value at the index offset, centered around the input neuron
+                    // The new position offset by our filter index.
                     newPos = translateFilterToNeuron(uvec2(inX, inY), ivec3(index));
                     if (newPos.x < 0 || newPos.x >= neuronDims.x || newPos.y < 0 || newPos.y >= neuronDims.y || newPos.z < 0 || newPos.z >= neuronDims.z) {
                         continue;
@@ -323,11 +331,9 @@ void ConvolutionBackpropagate(uvec3 index) {
             }
 
             // Now apply the final filter cost
-            weights[myIndex] += finalFilterCost;
+            weights[myIndex] -= learningRate * finalFilterCost;
         }
     }
-
-    neurons[neuronIndex].expected = finalValueCost;
 }
 
 // ==== P O O L I N G ====
@@ -439,7 +445,8 @@ void PoolingBackpropagate(uvec3 index) {
     // Find the MIN, MAX, or AVG (specified by poolMethod)
     float cost = 0.0;
     if (poolMethod == POOLMETHOD_AVG) {
-        cost = (1 / (poolSize.x * poolSize.y));
+        // MAKE SURE YOU REMEMBER THE .0 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        cost = (1.0 / (poolSize.x * poolSize.y));
     } else if (chosenNeuronValue == myNeuronValue)
     {
         cost = 1.0;

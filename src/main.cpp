@@ -144,13 +144,13 @@ int main(int argc, char** argv) {
 		// network.pushLayer(FCLayer(20*20, 32*32));
 		// network.pushLayer(OutputLayer(32*32));
 
-		network.pushLayer(ConvLayer(glm::uvec3(32, 32, 1), glm::uvec2(10, 10), 2));
-		network.pushLayer(PoolLayer(glm::uvec3(32, 32, 2), glm::uvec2(2, 2), Layer::PoolMethod::AVG));
-		network.pushLayer(ConvLayer(glm::uvec3(16, 16, 2), glm::uvec2(5, 5), 2));
-		network.pushLayer(PoolLayer(glm::uvec3(16, 16, 2), glm::uvec2(2, 2), Layer::PoolMethod::AVG));
-		network.pushLayer(FCLayer(8 * 8 * 2,16));
+		network.pushLayer(ConvLayer(glm::uvec3(32, 32, 1), glm::uvec2(10, 10), 10));
+		network.pushLayer(PoolLayer(glm::uvec3(32, 32, 10), glm::uvec2(2, 2), Layer::PoolMethod::MAX));
+		network.pushLayer(ConvLayer(glm::uvec3(16, 16, 10), glm::uvec2(5, 5), 10));
+		network.pushLayer(PoolLayer(glm::uvec3(16, 16, 10), glm::uvec2(2, 2), Layer::PoolMethod::MAX));
+		network.pushLayer(FCLayer(8 * 8 * 10,20*20));
 		//network.pushLayer(FCLayer(6 * 6, 16));
-		network.pushLayer(FCLayer(16, 20*20));
+		//network.pushLayer(FCLayer(16, 20*20));
 		network.pushLayer(FCLayer(20*20, 32*32));
 		network.pushLayer(OutputLayer(32*32));
 

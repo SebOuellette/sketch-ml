@@ -36,7 +36,7 @@ int8_t Layer::setup(glm::uvec3 const& newNeuronDims, Type newType, uint64_t weig
 
 	// Initialize the data
 	for (uint32_t i=0;i<NEURON_COUNT;i++) {
-		pNeurons[i].bias 	= static_cast<float>(static_cast<double>(rand()) / RAND_MAX);
+		pNeurons[i].bias 	= static_cast<float>(static_cast<double>(rand()) / RAND_MAX) / 10.0;
 		pNeurons[i].value 	= 0.0;
 		pNeurons[i].expected = 0.0;
 	}
@@ -111,7 +111,7 @@ Layer& Layer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) {
 	compute.setInt("nextLayerType", static_cast<int>(nextLayer.getType()));
 	compute.setInt("nextCount", nextLayer.getNeurons().getSize() / sizeof(Neuron));
 	compute.setBool("backProp", true);
-	compute.setFloat("learningRate", 0.01); //0.003);
+	compute.setFloat("learningRate", 0.003);
 	compute.dispatch(this->neuronSize());
 
 	oglopp::SSBO::unbind();

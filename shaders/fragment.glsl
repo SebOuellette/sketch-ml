@@ -85,6 +85,6 @@ void main() {
     //if (layerType == TYPE_POOLING) {
     //  FragColor = vec4(vec3());
     //} else {
-    FragColor = vec4(vec3(neurons[index].value) + vec3(-neurons[index].expected, 0.0, neurons[index].expected) * 0.3, 1.0);
+    FragColor = vec4(vec3(neurons[index].value) + vec3(-neurons[index].expected, 0.0, neurons[index].expected) * 30.3, 1.0);
     //}
 }
