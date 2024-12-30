@@ -186,38 +186,38 @@ void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const
  * @param[in] network	A reference to the netwrok to push layers to
 */
 Layer::Type readLayer(std::fstream& stream, Network& network) {
-	Layer headerParse;
-	headerParse.readHeader(stream);
-
-	//std::cout << "Loaded type: " << headerParse.getType() << std::endl;;
+	Layer::Type gotType;
+	Layer::readVar(stream, gotType);
 
 	// Parse the additional vars based on the type
-	switch (headerParse.getType()) {
-		case Layer::Type::CONVOLUTION:
-			static_cast<ConvLayer*>(&headerParse)->readAdditional(stream);
+	switch (gotType) {
+		case Layer::Type::CONVOLUTION: {
+			ConvLayer cLayer;
+			readSingleLayer(stream, network, cLayer);
 			break;
+		}
 
-		case Layer::Type::FULLY_CONNECTED:
-			static_cast<FCLayer*>(&headerParse)->readAdditional(stream);
+		case Layer::Type::FULLY_CONNECTED: {
+			FCLayer cLayer;
+			readSingleLayer(stream, network, cLayer);
 			break;
+		}
 
-		case Layer::Type::OUTPUT:
-			static_cast<OutputLayer*>(&headerParse)->readAdditional(stream);
+		case Layer::Type::OUTPUT: {
+			OutputLayer cLayer;
+			readSingleLayer(stream, network, cLayer);
 			break;
+		}
 
-		case Layer::Type::POOLING:
-			static_cast<PoolLayer*>(&headerParse)->readAdditional(stream);
+		case Layer::Type::POOLING: {
+			PoolLayer cLayer;
+			readSingleLayer(stream, network, cLayer);
 			break;
+		}
 	}
 
-	// Now parse the data
-	headerParse.readData(stream);
-
-	// Now push the layer to the network
-	network.pushLayer(headerParse);
-
 	// Return the found layer type
-	return headerParse.getType();
+	return gotType;
 }
 
 /* @brief Write some layer of some type and return the type that was written for safe keeping
@@ -230,21 +230,25 @@ Layer::Type writeLayer(std::fstream& stream, Layer& layer) {
 
 	// Parse the additional vars based on the type
 	switch (layer.getType()) {
-		case Layer::Type::CONVOLUTION:
+		case Layer::Type::CONVOLUTION: {
 			static_cast<ConvLayer*>(&layer)->writeAdditional(stream);
 			break;
+		}
 
-		case Layer::Type::FULLY_CONNECTED:
+		case Layer::Type::FULLY_CONNECTED: {
 			static_cast<FCLayer*>(&layer)->writeAdditional(stream);
 			break;
+		}
 
-		case Layer::Type::OUTPUT:
+		case Layer::Type::OUTPUT: {
 			static_cast<OutputLayer*>(&layer)->writeAdditional(stream);
 			break;
+		}
 
-		case Layer::Type::POOLING:
+		case Layer::Type::POOLING: {
 			static_cast<PoolLayer*>(&layer)->writeAdditional(stream);
 			break;
+		}
 	}
 
 	// Now parse the data

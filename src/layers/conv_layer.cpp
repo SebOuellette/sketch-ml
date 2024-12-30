@@ -5,9 +5,6 @@
 */
 ConvLayer::ConvLayer(ConvLayer const& copyLayer) {
 	this->Layer::operator=(copyLayer);
-
-	this->filterSize = copyLayer.filterSize;
-	this->filterCount = copyLayer.filterCount;
 }
 
 /* @brief Setup a convolutional layer
@@ -17,18 +14,10 @@ ConvLayer::ConvLayer(ConvLayer const& copyLayer) {
  * @return						A status code
 */
 ConvLayer::ConvLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 const& newFilterSize, uint64_t newFilterCount) {
-	this->filterSize = glm::uvec3(newFilterSize, newNeuronDims.z);
-	this->filterCount = newFilterCount;
-
-	// Set the weight dimensions for this layer. The dimensions of a single filter.
-	this->weightDimensions = this->filterSize;
-	this->weightDimensions.z *= newFilterCount; // uhhh
-
-	// Calculate the total convolutional weights for all filters
-	uint64_t totalWeights = filterCount * Layer::getTotalElements(this->weightDimensions);
+	this->weightDimensions = glm::uvec3(newFilterSize, newNeuronDims.z);
 
 	// Now continue to setup the layer
-	this->setup(newNeuronDims, Type::CONVOLUTION, totalWeights);
+	this->setup(newNeuronDims, Type::CONVOLUTION, newFilterCount);
 }
 
 /* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
@@ -37,8 +26,8 @@ ConvLayer::ConvLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 const& newFilte
 */
 ConvLayer& ConvLayer::feedForward(Layer& nextLayer, oglopp::Compute& compute) {
 	compute.use();
-	compute.setUIVec3("filterSize", this->filterSize);
-	compute.setUInt("filterCount", this->filterCount);
+	compute.setUIVec3("filterSize", this->weightDimensions);
+	compute.setUInt("filterCount", this->weightCountMultiplier);
 
 	Layer::feedForward(nextLayer, compute);
 	return *this;
@@ -51,31 +40,9 @@ ConvLayer& ConvLayer::feedForward(Layer& nextLayer, oglopp::Compute& compute) {
 */
 ConvLayer& ConvLayer::backPropagate(Layer& nextLayer, oglopp::Compute& compute) {
 	compute.use();
-	compute.setUIVec3("filterSize", this->filterSize);
-	compute.setUInt("filterCount", this->filterCount);
+	compute.setUIVec3("filterSize", this->weightDimensions);
+	compute.setUInt("filterCount", this->weightCountMultiplier);
 
 	Layer::backPropagate(nextLayer, compute);
 	return *this;
-}
-
-int8_t ConvLayer::writeAdditional(std::fstream& stream) {
-	int8_t res = 0;
-
-	res |= Layer::writeVar(stream, this->filterSize.x);
-	res |= Layer::writeVar(stream, this->filterSize.y);
-	res |= Layer::writeVar(stream, this->filterSize.z);
-
-	res |= Layer::writeVar(stream, this->filterCount);
-	return res;
-}
-
-int8_t ConvLayer::readAdditional(std::fstream& stream) {
-	int8_t res = 0;
-
-	res |= Layer::readVar(stream, this->filterSize.x);
-	res |= Layer::readVar(stream, this->filterSize.y);
-	res |= Layer::readVar(stream, this->filterSize.z);
-
-	res |= Layer::readVar(stream, this->filterCount);
-	return res;
 }

@@ -6,6 +6,10 @@
 // Output Layer
 class OutputLayer : public Layer {
 public:
+	OutputLayer() {
+		this->type = Layer::Type::OUTPUT;
+	}
+
 	/* @brief The layer to copy. Just copies internal variables (Should also dereference stuff that is not needed anymore)
 	 * @param[in] copyLayer	A reference to the layer to copy
 	*/

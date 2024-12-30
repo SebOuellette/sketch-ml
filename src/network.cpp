@@ -274,7 +274,7 @@ Network& Network::save(std::string const& directory) {
 
 	// Now get the full filepath
 	std::string fullPath = directory + this->networkFilename;
-	std::cout << "Saving model to " << fullPath << std::endl;
+	//std::cout << "Saving model to " << fullPath << std::endl;
 
 	// Open the file
 	std::fstream file(fullPath, std::ios::out | std::ios::binary);
@@ -286,7 +286,7 @@ Network& Network::save(std::string const& directory) {
 	// Write total layer count
 	uint32_t totalLayers = this->layers.size(); // includes all layers, including input and ouput
 	file.write(static_cast<char*>(static_cast<void*>(&totalLayers)), sizeof(totalLayers));
-	std::cout << "Writing [" << totalLayers << "] total layers" << std::endl;
+	//std::cout << "Writing [" << totalLayers << "] total layers" << std::endl;
 
 	// Write all layers except input
 	for (size_t i=0;i<this->layers.size();i++) {
@@ -313,7 +313,7 @@ Network& Network::load(std::string const& networkFile) {
 	// [float[] : layer n weights]
 
 	// Now get the full filepath
-	std::cout << "Loading model from " << networkFile << std::endl;
+	//std::cout << "Loading model from " << networkFile << std::endl;
 
 	// Open the file
 	std::fstream file(networkFile, std::ios::in | std::ios::binary);

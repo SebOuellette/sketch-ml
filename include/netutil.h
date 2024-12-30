@@ -19,6 +19,21 @@ void loadTrainingFiles(std::vector<std::vector<float>>& files, std::vector<uint3
 void setExpectedOutput(Network& network);
 void doSomeSamples(oglopp::Compute& compute, Network& network, std::string const& parentDir, std::vector<std::vector<float>>& files, std::vector<uint32_t>& fileIndices, size_t& offset, size_t countToDo);
 
+template <typename T>
+void readSingleLayer(std::fstream& stream, Network& network, T& layer) {
+	// Read header variables
+	layer.readHeader(stream);
+
+	// Read additional components for the child class
+	layer.readAdditional(stream);
+
+	// Read the data
+	layer.readData(stream);
+
+	// Now push the layer to the network
+	network.pushLayer(layer);
+}
+
 /* @brief Read some layer of some type and return the type that was read for safe keeping
  * @param[in] stream	A reference to the input stream to read the layer from
  * @param[in] network	A reference to the netwrok to push layers to

@@ -24,7 +24,7 @@ PoolLayer::PoolLayer(glm::uvec3 const& newNeuronDims, glm::uvec2 newSize, PoolMe
 	this->weightDimensions = glm::uvec3(0);
 
 	// Now setup the pooling layer
-	this->setup(newNeuronDims, Type::POOLING, 0);
+	this->setup(newNeuronDims, Type::POOLING);
 }
 
 /* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders

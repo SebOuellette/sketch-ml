@@ -40,13 +40,15 @@ public:
 	Layer() = default;
 	~Layer() = default;
 
+
+
 	/* @brief Setup the layer using new neuron dimensions and weight dimensions. Also allow specifying the new layer
 	 * @param[in] newNeuronDims	The new size of the neurons in 3 dimensional space
 	 * @param[in] newType		The new type of the layer. Specifies which component of LayerSettings to read
-	 * @param[in] totalWeights	The total number of weights to allocate for this layer. Set to 0 if no weights are required.
+	 * @param[in] weightMultiplier	A multiplier to the total weights addressed by weightDims
 	 * @return					A status code. 0 Upon success, <0 upon failure.
 	*/
-	int8_t setup(glm::uvec3 const& newNeuronDims, Type newType, uint64_t totalWeights);
+	int8_t setup(glm::uvec3 const& newNeuronDims, Type newType, uint64_t weightMultiplier = 1);
 
 	/* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders
 	 * @param[out] nextLayer	A reference to the next layer which will contain the activation result from this layer
@@ -111,6 +113,12 @@ public:
 	 * @return				A reference to this layer object
 	*/
 	Layer& operator=(Layer const& copyLayer);
+
+	/* @brief Assig another layer to this layer
+	 * @param[in] copyLayer	The next layer object to copy
+	 * @return				A reference to this layer object
+	*/
+	int8_t copyLayer(Layer const& copyLayer);
 
 	/* @brief Get the total number of elements from a vec3 dimensions object
 	 * @return	The total number of elements in a 3 dimensional space
@@ -187,6 +195,7 @@ protected:
 	Type type;
 	glm::uvec3 neuronDimensions;
 	glm::uvec3 weightDimensions;
+	uint weightCountMultiplier;
 };
 
 #endif

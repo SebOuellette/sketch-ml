@@ -6,6 +6,10 @@
 // Convolutional Layer
 class ConvLayer : public Layer {
 public:
+	ConvLayer() {
+		this->type = Layer::Type::CONVOLUTION;
+	}
+
 	/* @brief The layer to copy. Just copies internal variables (Should also dereference stuff that is not needed anymore)
 	 * @param[in] copyLayer	A reference to the layer to copy
 	*/
@@ -32,12 +36,7 @@ public:
 	*/
 	ConvLayer& backPropagate(Layer& nextLayer, oglopp::Compute& compute) override;
 
-	int8_t writeAdditional(std::fstream& stream) override;
-	int8_t readAdditional(std::fstream& stream) override;
-
 private:
-	glm::uvec3 filterSize;
-	uint64_t filterCount;
 };
 
 #endif

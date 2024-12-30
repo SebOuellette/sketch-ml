@@ -6,6 +6,10 @@
 // Fully Connected constructor
 class FCLayer : public Layer {
 public:
+	FCLayer() {
+		this->type = Layer::Type::FULLY_CONNECTED;
+	}
+
 	/* @brief The layer to copy. Just copies internal variables (Should also dereference stuff that is not needed anymore)
 	 * @param[in] copyLayer	A reference to the layer to copy
 	*/

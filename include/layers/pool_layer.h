@@ -6,6 +6,10 @@
 // Pooling Layer
 class PoolLayer : public Layer {
 public:
+	PoolLayer() {
+		this->type = Layer::Type::POOLING;
+	}
+
 	/* @brief The layer to copy. Just copies internal variables (Should also dereference stuff that is not needed anymore)
 	 * @param[in] copyLayer	A reference to the layer to copy
 	*/
@@ -32,8 +36,8 @@ public:
 	*/
 	PoolLayer& backPropagate(Layer& nextLayer, oglopp::Compute& compute) override;
 
-	int8_t writeAdditional(std::fstream& stream) override;
-	int8_t readAdditional(std::fstream& stream) override;
+	virtual int8_t writeAdditional(std::fstream& stream) override;
+	virtual int8_t readAdditional(std::fstream& stream) override;
 
 	glm::uvec2 const& getPoolSize();
 	PoolMethod const& getPoolMethod();

@@ -16,12 +16,10 @@ FCLayer::FCLayer(FCLayer const& copyLayer) {
 FCLayer::FCLayer(uint64_t const& newNeuronCount, uint64_t weightsCount) {
 	// Set the weight dimensions for this layer
 	this->weightDimensions = Layer::makeSingleDimensional(weightsCount);
-
-	// Calculate the total number of weights used in this layer (not including the bias)
-	uint64_t totalWeights = newNeuronCount * weightsCount;
+	this->weightCountMultiplier = newNeuronCount;
 
 	// Now continue to setup the layer
-	this->setup(Layer::makeSingleDimensional(newNeuronCount), Type::FULLY_CONNECTED, totalWeights);
+	this->setup(Layer::makeSingleDimensional(newNeuronCount), Type::FULLY_CONNECTED, newNeuronCount);
 }
 
 /* @brief Perform the feed forward algorithm on this layer using a reference to the next layer. Performs on the GPU with oglopp compute shaders

@@ -191,7 +191,7 @@ ivec3 translateFilterToNeuron(uvec2 neuronIndex, ivec3 filterPos) {
     ivec3 outputPos = ivec3(neuronIndex, filterPos.z);
 
     // Offset the output Pos to have the filter position centered.
-    outputPos.xy += filterPos.xy - filterPos.xy / 2;
+    outputPos.xy += filterPos.xy - ivec2(filterSize.xy) / 2;
 
     // The z position is not offset. Each filter's channel corresponds with one input channel. No mixing and matching.
     // But, for forward propagation.. it just makes more sense to copy filterPos.z to the output. The filter dimensions contain all information we need about depth for input and output layers.
@@ -241,7 +241,7 @@ void ConvolutionPropagate(uvec3 index) {
     }
 
     // Add bias to finalZSum
-    finalZSum += otherNeurons[nextNeuronIndex].bias;
+    //finalZSum += otherNeurons[nextNeuronIndex].bias;
 
     // pass finalZSum through activation (RELU)
     otherNeurons[nextNeuronIndex].value = lrelu(finalZSum);
@@ -254,7 +254,81 @@ void ConvolutionPropagate(uvec3 index) {
 
 // @brief Backpropagation
 // @param[in] index	The index of the neuron in this layer to use for propagation
-void ConvolutionBackpropagate(uvec3 index) {}
+void ConvolutionBackpropagate(uvec3 index) {
+    // Carry back the derivitive with respect to the input z value. (The sum of all weights that would have been multiplied by the input neuron, multiplied by the activation derivitive, multiplied by the previously carried error)
+    // Adjust each weight
+
+    float finalFilterCost = 0;
+    float finalValueCost = 0;
+
+    // 'index' represents the index within the output layer, which is also the index within the input layer
+    const ivec3 NEXT_LAYER_DIMS = ivec3(neuronDims.xy, filterCount);
+    uint neuronIndex = getLayerIndex(ivec4(index, 0), ivec3(neuronDims));
+
+    // temp vars
+    ivec3 filterOrigin;
+    ivec3 newPos;
+    uint filterIndex;
+    uint loopNextIndex;
+    uint loopLastIndex;
+
+    // Now do convolution
+    /// Loop through each filter. Only look at filter channels equal to index.z, but do it for every filter
+    for (uint filterN = 0; filterN < filterCount; filterN++) {
+        for (uint filterY = 0; filterY < filterSize.y; filterY++) {
+            for (uint filterX = 0; filterX < filterSize.x; filterX++) {
+                // GLSL automatically pads with 0 if it's out of range.. but even if the texture looped.. that's another acceptable way of doing this.
+                filterOrigin = ivec3(filterX, filterY, index.z);
+
+                // Fetch the position of the neuron to multiply by the filter value
+                newPos = translateFilterToNeuron(index.xy, filterOrigin);
+                if (newPos.x < 0 || newPos.x >= neuronDims.x || newPos.y < 0 || newPos.y >= neuronDims.y || newPos.z < 0 || newPos.z >= neuronDims.z) {
+                    //finalZSum += 0;
+                    continue;
+                }
+
+                filterIndex = getLayerIndex(ivec4(filterSize.x - filterOrigin.x, filterSize.y - filterOrigin.y, index.z, filterN), ivec3(filterSize));
+                loopNextIndex = getLayerIndex(ivec4(newPos.xy, filterN, 0), ivec3(NEXT_LAYER_DIMS));
+
+                // Add to the error that will be carried back
+                finalValueCost += weights[filterIndex] * lrelu_(otherNeurons[loopNextIndex].value) * otherNeurons[loopNextIndex].expected;
+            }
+        }
+    }
+
+    // Do weight adjustments if our index is smaller than the size of a filter.
+    // -> This makes index equal to the index within the filter, since filters are always smaller than the input layer
+    if (index.x < filterSize.x && index.y < filterSize.y) { // index.z is equal to filter.z already
+        // For every filter (each with its own vec3 components)
+        for (uint filterN = 0; filterN < filterCount; filterN++) {
+            finalFilterCost = 0.0;
+            uint myIndex = getLayerIndex(ivec4(index, filterN), ivec3(filterSize));
+
+            // For every x and y position within the filter, do convolution
+            for (uint inY = 0; inY < neuronDims.y; inY++) {
+                for (uint inX = 0; inX < neuronDims.x; inX++) {
+                    // The origin position of the next filter. Our actual index tells us which filter to use, and which local filter index.
+                    // So we loop through every neuron in the input, pretend we're centering a filter over that neuron, then finding the neuron value at the index offset, centered around the input neuron
+                    newPos = translateFilterToNeuron(uvec2(inX, inY), ivec3(index));
+                    if (newPos.x < 0 || newPos.x >= neuronDims.x || newPos.y < 0 || newPos.y >= neuronDims.y || newPos.z < 0 || newPos.z >= neuronDims.z) {
+                        continue;
+                    }
+
+                    loopNextIndex = getLayerIndex(ivec4(inX, inY, filterN, 0), ivec3(NEXT_LAYER_DIMS));
+                    loopLastIndex = getLayerIndex(ivec4(newPos, 0), ivec3(neuronDims));
+
+                    // Add to the filter error
+                    finalFilterCost += neurons[loopLastIndex].value * lrelu_(otherNeurons[loopNextIndex].value) * otherNeurons[loopNextIndex].expected;
+                }
+            }
+
+            // Now apply the final filter cost
+            weights[myIndex] += finalFilterCost;
+        }
+    }
+
+    neurons[neuronIndex].expected = finalValueCost;
+}
 
 // ==== P O O L I N G ====
 uniform ivec2 poolSize;

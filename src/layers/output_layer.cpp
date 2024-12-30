@@ -16,5 +16,5 @@ OutputLayer::OutputLayer(uint64_t const& newNeuronCount) {
 	this->weightDimensions = glm::ivec3(0);
 
 	// Now setup the pooling layer
-	this->setup(Layer::makeSingleDimensional(newNeuronCount), Type::OUTPUT, 0);
+	this->setup(Layer::makeSingleDimensional(newNeuronCount), Type::OUTPUT);
 }
