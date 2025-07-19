@@ -35,9 +35,13 @@ using namespace oglopp;
 
 class InputBuffer {
 public:
-	static Window* windowPtr;
 	static float drawSize;
-	static void* keyData;
+	//static void* keyData;
+
+	struct KeyVars {
+		static Window* pWindow;
+		static Network* pNetwork;
+	};
 
 	enum INPUT_ACTION : int {
 		KEY_PRESS = GLFW_PRESS,
@@ -55,9 +59,49 @@ public:
 	}
 };
 
-Window* InputBuffer::windowPtr  = nullptr;
-void* InputBuffer::keyData = nullptr;
 float InputBuffer::drawSize = 30;
+Network* InputBuffer::KeyVars::pNetwork = nullptr;
+Window* InputBuffer::KeyVars::pWindow = nullptr;
+
+
+
+// int captureTrainingData(Network* network, int key, int action) {
+
+
+// 	Layer* output = InputBuffer::KeyVars::pNetwork->getLayers().back();
+// 	//Neuron* neurons = static_cast<Neuron*>(output->getNeurons().map(oglopp::SSBO::BOTH));
+// 	for (int i=0;i<10;i++) {
+// 	 	//neurons[i].expected = window.keyPressed(GLFW_KEY_0 + i) ? 1.0 : 0.0;
+// 		keyDown = window.keyPressed(GLFW_KEY_0 + i) ? GLFW_KEY_0 + i : keyDown;
+// 	}
+// 	for (int i=0;i<26;i++) {
+// 		//neurons[i + 10].expected = window.keyPressed(GLFW_KEY_A + i) ? 1.0 : 0.0;
+// 		keyDown = window.keyPressed(GLFW_KEY_A + i) ? GLFW_KEY_A + i : keyDown;
+// 	}
+// 	//output->getNeurons().unmap();
+
+// 	if (keyDown > 0 && !justPressed) {
+// 		justPressed = true;
+// 		setExpectedOutput(network);
+// 		std::cout << "pressed" << std::endl;
+// 		saveTrainingElement(network.getLayers().front()->getNeurons(), keyDown, MY_PATH);
+
+// 		network.backProp(compute);
+// 		output = network.getLayers().front();
+// 		Neuron* neurons = static_cast<Neuron*>(output->getNeurons().map(oglopp::SSBO::BOTH));
+
+// 		for (size_t i=0;i<output->getNeurons().getSize()/sizeof(Neuron);i++) {
+// 			neurons[i].expected = 0.0;
+// 			neurons[i].value = 0.0;
+// 		}
+
+// 		output->getNeurons().unmap();
+// 	}
+
+// 	if (keyDown == 0) {
+// 		justPressed = false;
+// 	}
+// }
 
 
 int main(int argc, char** argv) {
@@ -97,7 +141,7 @@ int main(int argc, char** argv) {
 	// Create the window
 	Window window;
 	window.create(800, 800, "Handwritten Digit Recognition", options);
-	InputBuffer::windowPtr = &window;
+	InputBuffer::KeyVars::pWindow = &window;
 	glfwSetScrollCallback(window.getWindow(), InputBuffer::scrollCallback);
 	glfwSetKeyCallback(window.getWindow(), InputBuffer::keyCallback);
 
@@ -125,13 +169,13 @@ int main(int argc, char** argv) {
 	std::string modelPath;
 	if (argc < 2) {
 		modelPath = MY_PATH + MODEL_DIRECTORY;
-		// network.pushLayer(FCLayer(32*32, 50*50));
-		// network.pushLayer(FCLayer(50*50, 20*20));
-		// network.pushLayer(FCLayer(20*20, 16));
-		// network.pushLayer(FCLayer(16, 20*20));
-		// network.pushLayer(FCLayer(20*20, 50*50));
-		// network.pushLayer(FCLayer(50*50, 32*32));
-		// network.pushLayer(OutputLayer(32*32));
+		//network.pushLayer(FCLayer(32*32, 50*50));
+		//network.pushLayer(FCLayer(50*50, 20*20));
+		//network.pushLayer(FCLayer(20*20, 16));
+		//network.pushLayer(FCLayer(16, 20*20));
+		//network.pushLayer(FCLayer(20*20, 50*50));
+		//network.pushLayer(FCLayer(50*50, 32*32));
+		//network.pushLayer(OutputLayer(32*32));
 
 		// network.pushLayer(ConvLayer(glm::uvec3(32, 32, 1), glm::uvec2(5, 5), 10));
 		// network.pushLayer(PoolLayer(glm::uvec3(32, 32, 10), glm::uvec2(2, 2), Layer::PoolMethod::MAX));
@@ -149,8 +193,8 @@ int main(int argc, char** argv) {
 		network.pushLayer(ConvLayer(glm::uvec3(16, 16, 10), glm::uvec2(5, 5), 10));
 		network.pushLayer(PoolLayer(glm::uvec3(16, 16, 10), glm::uvec2(2, 2), Layer::PoolMethod::MAX));
 		network.pushLayer(FCLayer(8 * 8 * 10,20*20));
-		//network.pushLayer(FCLayer(6 * 6, 16));
-		//network.pushLayer(FCLayer(16, 20*20));
+		network.pushLayer(FCLayer(6 * 6, 16));
+		network.pushLayer(FCLayer(16, 20*20));
 		network.pushLayer(FCLayer(20*20, 32*32));
 		network.pushLayer(OutputLayer(32*32));
 

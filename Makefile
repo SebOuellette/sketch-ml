@@ -7,10 +7,11 @@ SOURCE_DIR := src/
 BUILD_DIR := build/
 
 CXX_OPTIONS := -Wall
-LIBRARIES := -loglopp
+LIBRARIES := -loglopp -lglfw 
+#-lglfw
 
-LINK_OPTIONS 	:= -L../usr/lib -lglfw -lglad -loglopp
-COMPILE_OPTIONS	:= -I../usr/include -I$(HEADERS_DIR) -g3 -O0
+LINK_OPTIONS 	:= $(LIBRARIES)
+COMPILE_OPTIONS	:= -I$(HEADERS_DIR) -g3 -O0
 
 SOURCE_FILES := $(wildcard $(SOURCE_DIR)*.cpp) $(wildcard $(SOURCE_DIR)*/*.cpp)
 OBJECT_FILES := $(patsubst $(SOURCE_DIR)%.cpp,$(BUILD_DIR)%.o,$(SOURCE_FILES))
