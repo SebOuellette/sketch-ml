@@ -1,4 +1,4 @@
-#version 460 core
+#version 450 core
 precision highp float;
 layout(local_size_x = 1) in;
 

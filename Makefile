@@ -1,6 +1,6 @@
 CURRENT_DIR := $(shell pwd)
 CXX := g++
-EXE := digitrec
+EXE := sketchml
 
 HEADERS_DIR := include/
 SOURCE_DIR := src/
@@ -9,7 +9,7 @@ BUILD_DIR := build/
 CXX_OPTIONS := -Wall
 LIBRARIES := -loglopp
 
-LINK_OPTIONS 	:= -L../usr/lib -lglfw -lglad -loglopp
+LINK_OPTIONS 	:= -L../usr/lib -lglfw -loglopp
 COMPILE_OPTIONS	:= -I../usr/include -I$(HEADERS_DIR) -g3 -O0
 
 SOURCE_FILES := $(wildcard $(SOURCE_DIR)*.cpp) $(wildcard $(SOURCE_DIR)*/*.cpp)
