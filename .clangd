@@ -2,4 +2,4 @@ CompileFlags:
 	Add:
 		- "-I/network/Programming/opengl/Headers/"
 		- "-I/network/Programming/usr/include/"
-		- "-I/network/Programming/digitrec/include/"
+		- "-I/network/Programming/sketchml/include/"
