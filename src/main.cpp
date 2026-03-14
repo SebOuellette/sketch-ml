@@ -25,6 +25,7 @@ using namespace oglopp;
 #define RESOLUTION	(32) // RESOLUTION x RESOLUTION pixels
 #define PIXELS		(RESOLUTION * RESOLUTION)
 #define TRAINSIZE 5
+#define KEY_TRAIN_MODEL GLFW_KEY_ENTER
 #define KEY_SAVE_MODEL	GLFW_KEY_PAGE_DOWN
 
 #define OPT_STRING "h"
@@ -72,11 +73,18 @@ int main(int argc, char** argv) {
 				<< "-t [type]\tOne of 'classify,deep'" << std::endl
 				<< "-c [kernel]\tMake the previous hidden layer a convolutional layer. 'kernel' specifies which kernel containing a set of predefined filters to use." << std::endl
 				<< "-L [neurons]\tAdd a new (hidden) layer of some size." << std::endl
-				<< "-l [layer type]\tSet the layer type ''"
+				<< "-l [layer type]\tSet the layer type ''" << std::endl
 				<< "-I [neurons]\tSpecify the number of neurons to use in the input layer." << std::endl
 				<< "-O [neurons]\tSpecify the number of neurons to use in the output layer." << std::endl
 				<< "-T [iterations]\tTrain the network for some number of 'iterations' then save the model and exit." << std::endl
 				<< "-C [channelMap]\tSelect a set of channels to use for each pixel. Any of the following characters can be included or excluded. The chosen options must be appended together into one non-delimited word. Options are: 'rgba'. Choose any single channel for black/white mode." << std::endl
+				<< std::endl << "When running, press ENTER to start/stop training, and PAGE_DOWN to save the model to disk. Press A-Z or 0-1 to save a sample as the key you press." << std::endl
+				<< " 1. $ ./sketchml" << std::endl
+				<< " 2. Draw a letter or number. ('A', for example)" << std::endl
+				<< " 3. Press 0-1 or A-Z to save the sample as samples/<key>_<time>_<rand>.raw. (If you drew 'A', press the 'A' key. Doesn't really matter which key you press for auto-encoding)" << std::endl
+				<< " 4. Press ENTER to start training on all the saved samples. Press again to stop." << std::endl
+				<< " 5. Press PAGE_DOWN to save the model you have trained." << std::endl << std::endl
+				<< " 6. $ ./sketchml models/skml_<layers>_<time>-<rand>.skm    # Load the model" << std::endl
 				;
 				exit(0); // Close the program after displaying help
 				break;
@@ -183,7 +191,7 @@ int main(int argc, char** argv) {
 		}
 
 
-		if (window.keyPressed(GLFW_KEY_ENTER)) {
+		if (window.keyPressed(KEY_TRAIN_MODEL)) {
 			if (enterPressed == false) {
 				// Enter was just pressed
 				trainingOffset = 0;
@@ -204,7 +212,7 @@ int main(int argc, char** argv) {
 
 
 		// Saving the network
-		if (window.keyPressed(GLFW_KEY_PAGE_DOWN)) {
+		if (window.keyPressed(KEY_SAVE_MODEL)) {
 			if (pgdownPressed == false) {
 				network.save(modelPath);
 			}
